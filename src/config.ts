@@ -17,7 +17,8 @@ async function build(): Promise<CoreDeps> {
   const businessUuid = process.env.POKE_BUSINESS_UUID ?? "11111111-2222-3333-4444-555555555555";
   const scopedKey = process.env.POKE_SCOPED_KEY ?? "pk_shortcut_demo";
   const mspSecret = process.env.MSP_SECRET ?? "msp_secret_demo";
-  const dbUrl = process.env.DATABASE_URL;
+  // Neon's Vercel integration may expose the URL under any of these names.
+  const dbUrl = process.env.DATABASE_URL ?? process.env.POSTGRES_URL ?? process.env.DATABASE_URL_UNPOOLED;
 
   if (dbUrl) {
     const pool = new Pool({ connectionString: dbUrl });
