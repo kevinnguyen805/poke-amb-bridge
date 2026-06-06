@@ -13,6 +13,21 @@ egress middleware, plus the in-memory stores and the CAS single-use primitive.
 > state is in-memory, and the two launch gates from the plan (on-device bcrw routing; correlation-
 > consent legality) are out of scope here by design.
 
+## Live
+
+Deployed on **Vercel** (Edge functions) + **Neon Postgres**: https://poke-amb-bridge.vercel.app
+
+```
+GET  /healthz
+POST /share        (header x-poke-key)
+POST /amb/ingress  (header x-msp-signature: hmac-sha256 over the raw body)
+```
+
+Verified in production across separate serverless invocations: `bound` / `replay` / `foreign-reject` /
+`cold` resolution, token single-use (CAS), and HMAC auth — all persisting through Postgres. The MSP
+boundary is the `LoggingMsp` (emits to platform logs); it flips to a real MSP when credentials exist
+(see `PRODUCTION.md`).
+
 ## Run it
 
 ```bash
@@ -83,5 +98,5 @@ Poke account), and routes the reply through the egress chokepoint.
 
 - Leaf generators: hybrid vCard, Wallet `.pkpass`, AASA + Smart Banner, the Shortcut action graph
   (independent distribution artifacts — not the core linking loop).
-- A durable store adapter behind the `InMemory*` seam (the spine is store-agnostic).
+- A real MSP adapter to replace `LoggingMsp` — gated on an MSP contract (see `PRODUCTION.md`).
 - The two launch gates (on-device bcrw smoke test; correlation-consent legality) — see the plan.
