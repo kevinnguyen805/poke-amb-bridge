@@ -1,0 +1,20 @@
+{
+  "name": "poke-amb-bridge",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Reference implementation of the Tier-1 spine that bridges iMessage and Apple Messages for Business into one channel for Poke. MSP/Apple boundary mocked.",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "demo": "tsx src/demo.ts",
+    "serve": "tsx src/serve.ts"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "tsx": "^4.19.2",
+    "vitest": "^2.1.8",
+    "@types/node": "^20.16.0"
+  }
+}
