@@ -16,48 +16,48 @@ function rec(token: string): ShareTokenRecord {
 }
 
 describe("InMemoryTokenStore", () => {
-  it("round-trips put/get", () => {
+  it("round-trips put/get", async () => {
     const s = new InMemoryTokenStore();
-    s.put(rec("t1"));
-    expect(s.get("t1")?.intent).toBe("share");
-    expect(s.get("missing")).toBeUndefined();
+    await s.put(rec("t1"));
+    expect((await s.get("t1"))?.intent).toBe("share");
+    expect(await s.get("missing")).toBeUndefined();
   });
 
-  it("consume on an unconsumed token WINS the CAS and stamps consumedAt/consumedBy", () => {
+  it("consume on an unconsumed token WINS the CAS and stamps consumedAt/consumedBy", async () => {
     const s = new InMemoryTokenStore();
-    s.put(rec("t2"));
-    const r = s.consume("t2", "opaqueA", "2026-06-05T18:01:00.000Z");
+    await s.put(rec("t2"));
+    const r = await s.consume("t2", "opaqueA", "2026-06-05T18:01:00.000Z");
     expect(r.status).toBe("won");
-    expect(s.get("t2")?.consumedBy).toBe("opaqueA");
-    expect(s.get("t2")?.consumedAt).toBe("2026-06-05T18:01:00.000Z");
+    expect((await s.get("t2"))?.consumedBy).toBe("opaqueA");
+    expect((await s.get("t2"))?.consumedAt).toBe("2026-06-05T18:01:00.000Z");
   });
 
-  it("a second consume by the SAME opaqueId is a replay (branch 2c)", () => {
+  it("a second consume by the SAME opaqueId is a replay (branch 2c)", async () => {
     const s = new InMemoryTokenStore();
-    s.put(rec("t3"));
-    s.consume("t3", "opaqueA", "2026-06-05T18:01:00.000Z");
-    expect(s.consume("t3", "opaqueA", "2026-06-05T18:02:00.000Z").status).toBe("replay");
+    await s.put(rec("t3"));
+    await s.consume("t3", "opaqueA", "2026-06-05T18:01:00.000Z");
+    expect((await s.consume("t3", "opaqueA", "2026-06-05T18:02:00.000Z")).status).toBe("replay");
   });
 
-  it("a consume by a DIFFERENT opaqueId after consumption is foreign — rejected (branch 2b)", () => {
+  it("a consume by a DIFFERENT opaqueId after consumption is foreign — rejected (branch 2b)", async () => {
     const s = new InMemoryTokenStore();
-    s.put(rec("t4"));
-    s.consume("t4", "opaqueA", "2026-06-05T18:01:00.000Z");
-    const r = s.consume("t4", "opaqueB", "2026-06-05T18:03:00.000Z");
+    await s.put(rec("t4"));
+    await s.consume("t4", "opaqueA", "2026-06-05T18:01:00.000Z");
+    const r = await s.consume("t4", "opaqueB", "2026-06-05T18:03:00.000Z");
     expect(r.status).toBe("foreign");
-    expect(s.get("t4")?.consumedBy).toBe("opaqueA"); // unchanged
+    expect((await s.get("t4"))?.consumedBy).toBe("opaqueA");
   });
 
-  it("consume of a missing token reports missing", () => {
+  it("consume of a missing token reports missing", async () => {
     const s = new InMemoryTokenStore();
-    expect(s.consume("nope", "opaqueA", "2026-06-05T18:01:00.000Z").status).toBe("missing");
+    expect((await s.consume("nope", "opaqueA", "2026-06-05T18:01:00.000Z")).status).toBe("missing");
   });
 
-  it("only one of two concurrent consumers wins; the other is foreign", () => {
+  it("only one of two consumers wins; the other is foreign", async () => {
     const s = new InMemoryTokenStore();
-    s.put(rec("t5"));
-    const a = s.consume("t5", "opaqueA", "2026-06-05T18:01:00.000Z");
-    const b = s.consume("t5", "opaqueB", "2026-06-05T18:01:00.000Z");
+    await s.put(rec("t5"));
+    const a = await s.consume("t5", "opaqueA", "2026-06-05T18:01:00.000Z");
+    const b = await s.consume("t5", "opaqueB", "2026-06-05T18:01:00.000Z");
     expect(a.status).toBe("won");
     expect(b.status).toBe("foreign");
   });
@@ -74,10 +74,10 @@ describe("InMemoryContinuityStore", () => {
     linkSource: "shortcut",
   });
 
-  it("round-trips and is keyed on opaqueId", () => {
+  it("round-trips and is keyed on opaqueId", async () => {
     const s = new InMemoryContinuityStore();
-    s.put(link("opaqueA"));
-    expect(s.get("opaqueA")?.linkedVia).toBe("share");
-    expect(s.get("opaqueZ")).toBeUndefined();
+    await s.put(link("opaqueA"));
+    expect((await s.get("opaqueA"))?.linkedVia).toBe("share");
+    expect(await s.get("opaqueZ")).toBeUndefined();
   });
 });

@@ -1,0 +1,8 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "rewrites": [
+    { "source": "/share", "destination": "/api/share" },
+    { "source": "/amb/ingress", "destination": "/api/amb/ingress" },
+    { "source": "/healthz", "destination": "/api/healthz" }
+  ]
+}

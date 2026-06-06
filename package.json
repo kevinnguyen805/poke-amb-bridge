@@ -11,10 +11,14 @@
     "demo": "tsx src/demo.ts",
     "serve": "tsx src/serve.ts"
   },
+  "dependencies": {
+    "@neondatabase/serverless": "^0.10.4"
+  },
   "devDependencies": {
     "typescript": "^5.6.3",
     "tsx": "^4.19.2",
     "vitest": "^2.1.8",
+    "pg-mem": "^3.0.5",
     "@types/node": "^20.16.0"
   }
 }

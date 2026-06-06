@@ -11,75 +11,68 @@ function deps(tokens = new InMemoryTokenStore()): MintDeps {
 }
 
 describe("mint (/share)", () => {
-  it("scoped-key (Shortcut) caller mints an ANONYMOUS token (ttl 900), never an account", () => {
+  it("scoped-key (Shortcut) caller mints an ANONYMOUS token (ttl 900), never an account", async () => {
     const tokens = new InMemoryTokenStore();
-    const r = mint(deps(tokens), { kind: "scoped-key" }, { payload: { kind: "url", url: "https://x.com" } });
+    const r = await mint(deps(tokens), { kind: "scoped-key" }, { payload: { kind: "url", url: "https://x.com" } });
     expect(r.tokenClass).toBe("anonymous");
     expect(r.ttl).toBe(900);
     expect(r.expiresAt).toBe("2026-06-05T18:15:00.000Z");
-    const rec = tokens.get(r.token)!;
+    const rec = (await tokens.get(r.token))!;
     expect(rec.pokeAccountIdRef).toBeUndefined();
     expect(rec.consentRef).toBeUndefined();
     expect("handle" in rec).toBe(false);
   });
 
-  it("returns a convenience bcrwUrl with biz-intent-id and percent-encoded body", () => {
-    const r = mint(deps(), { kind: "scoped-key" }, { intent: "share", payload: { kind: "url", url: "https://x.com" } });
+  it("returns a convenience bcrwUrl with biz-intent-id and percent-encoded body", async () => {
+    const r = await mint(deps(), { kind: "scoped-key" }, { intent: "share", payload: { kind: "url", url: "https://x.com" } });
     expect(r.bcrwUrl).toBe(
       `https://bcrw.apple.com/urn:biz:${UUID}?biz-intent-id=share&body=poke%3A${"a".repeat(22)}`,
     );
   });
 
-  it("session caller WITH bind + valid consent mints an ACCOUNT-BOUND token (ttl 120), stamping the account from the session", () => {
+  it("session caller WITH bind + valid consent mints an ACCOUNT-BOUND token (ttl 120), stamping the account from the session", async () => {
     const tokens = new InMemoryTokenStore();
-    const r = mint(
+    const r = await mint(
       deps(tokens),
       { kind: "session", pokeAccountId: "acct_42" },
       { bind: true, consentRef: "consent_abc", payload: { kind: "text", text: "hi" }, linkSource: "imessage_cta" },
     );
     expect(r.tokenClass).toBe("account-bound");
     expect(r.ttl).toBe(120);
-    const rec = tokens.get(r.token)!;
+    const rec = (await tokens.get(r.token))!;
     expect(rec.pokeAccountIdRef).toBe("acct_42");
     expect(rec.consentRef).toBe("consent_abc");
     expect(rec.linkSource).toBe("imessage_cta");
   });
 
-  it("rejects an account-bound mint without a valid consentRef (403)", () => {
-    try {
-      mint(deps(), { kind: "session", pokeAccountId: "acct_42" }, { bind: true, payload: { kind: "text", text: "hi" } });
-      throw new Error("should have thrown");
-    } catch (e) {
-      expect(e).toBeInstanceOf(MintError);
-      expect((e as MintError).status).toBe(403);
-    }
+  it("rejects an account-bound mint without a valid consentRef (403)", async () => {
+    await expect(
+      mint(deps(), { kind: "session", pokeAccountId: "acct_42" }, { bind: true, payload: { kind: "text", text: "hi" } }),
+    ).rejects.toMatchObject({ status: 403 });
   });
 
-  it("a scoped-key caller can NEVER bind an account, even if it asks (403)", () => {
-    expect(() =>
+  it("a scoped-key caller can NEVER bind an account, even if it asks (403)", async () => {
+    await expect(
       mint(deps(), { kind: "scoped-key" }, { bind: true, consentRef: "consent_abc", payload: { kind: "text", text: "hi" } }),
-    ).toThrow(MintError);
+    ).rejects.toBeInstanceOf(MintError);
   });
 
-  it("rejects a javascript: payload URL (400)", () => {
-    try {
-      mint(deps(), { kind: "scoped-key" }, { payload: { kind: "url", url: "javascript:alert(1)" } });
-      throw new Error("should have thrown");
-    } catch (e) {
-      expect((e as MintError).status).toBe(400);
-    }
+  it("rejects a javascript: payload URL (400)", async () => {
+    await expect(
+      mint(deps(), { kind: "scoped-key" }, { payload: { kind: "url", url: "javascript:alert(1)" } }),
+    ).rejects.toMatchObject({ status: 400 });
   });
 
-  it("rejects an oversized URL payload (400)", () => {
-    expect(() =>
+  it("rejects an oversized URL payload (400)", async () => {
+    await expect(
       mint(deps(), { kind: "scoped-key" }, { payload: { kind: "url", url: "https://x.com/" + "q".repeat(3000) } }),
-    ).toThrow(MintError);
+    ).rejects.toBeInstanceOf(MintError);
   });
 
-  it("defaults intent to share and linkSource to shortcut for scoped-key", () => {
+  it("defaults intent to share and linkSource to shortcut for scoped-key", async () => {
     const tokens = new InMemoryTokenStore();
-    const r = mint(deps(tokens), { kind: "scoped-key" }, { payload: { kind: "url", url: "https://x.com" } });
-    const rec = tokens.get(r.token)!;
+    const r = await mint(deps(tokens), { kind: "scoped-key" }, { payload: { kind: "url", url: "https://x.com" } });
+    const rec = (await tokens.get(r.token))!;
     expect(rec.intent).toBe("share");
     expect(rec.linkSource).toBe("shortcut");
   });

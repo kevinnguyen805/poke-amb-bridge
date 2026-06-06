@@ -1,5 +1,5 @@
 import type { AmbOutbound, Clock, LinkSource } from "./types";
-import type { InMemoryContinuityStore } from "./store";
+import type { ContinuityStore } from "./store";
 import type { Msp } from "./msp";
 
 export type SendResult =
@@ -7,7 +7,7 @@ export type SendResult =
   | { blocked: "out_of_window" | "budget" | "human_owns_turn"; fallback: string };
 
 export type EgressDeps = {
-  continuity: InMemoryContinuityStore;
+  continuity: ContinuityStore;
   msp: Msp;
   clock: Clock;
   circuitBreaker?: { isOpen(linkSource: LinkSource): boolean };
@@ -21,8 +21,8 @@ function hoursSince(iso: string, now: Date): number {
  * The single mandatory outbound chokepoint (plan §"AMB egress middleware").
  * It is structurally impossible to emit an unlabeled or out-of-window AMB message.
  */
-export function sendAmb(deps: EgressDeps, opaqueId: string, msg: AmbOutbound): SendResult {
-  const link = deps.continuity.get(opaqueId);
+export async function sendAmb(deps: EgressDeps, opaqueId: string, msg: AmbOutbound): Promise<SendResult> {
+  const link = await deps.continuity.get(opaqueId);
 
   // The agent stays silent while a human owns the turn (VL-5 real handoff).
   if (link?.agentState === "human" && msg.agentAuto === true) {
@@ -42,16 +42,16 @@ export function sendAmb(deps: EgressDeps, opaqueId: string, msg: AmbOutbound): S
     return { blocked: "budget", fallback: "web_or_imessage" };
   }
 
-  deps.msp.send(opaqueId, stamped);
+  await deps.msp.send(opaqueId, stamped);
   return { sent: true };
 }
 
 /** Escalation routes to the MSP live-agent queue (a non-agent recipient) and flips turn state. */
-export function requestHumanHandoff(deps: EgressDeps, opaqueId: string): void {
-  const link = deps.continuity.get(opaqueId);
+export async function requestHumanHandoff(deps: EgressDeps, opaqueId: string): Promise<void> {
+  const link = await deps.continuity.get(opaqueId);
   if (link) {
     link.agentState = "awaiting_human";
-    deps.continuity.put(link);
+    await deps.continuity.put(link);
   }
-  deps.msp.routeToHuman(opaqueId);
+  await deps.msp.routeToHuman(opaqueId);
 }

@@ -1,6 +1,6 @@
 import { generateToken } from "./token";
 import { buildBcrwUrl } from "./bcrw";
-import type { InMemoryTokenStore } from "./store";
+import type { TokenStore } from "./store";
 import type { Clock, Intent, LinkSource, SharedPayload, ShareTokenRecord, TokenClass } from "./types";
 
 /** The credential class determines the token class. `handle` is NEVER part of the request. */
@@ -23,7 +23,7 @@ export type MintResult = {
 };
 
 export type MintDeps = {
-  tokens: InMemoryTokenStore;
+  tokens: TokenStore;
   businessUuid: string;
   clock: Clock;
   newToken?: () => string;
@@ -60,7 +60,7 @@ function validatePayload(p: SharedPayload): void {
   }
 }
 
-export function mint(deps: MintDeps, principal: Principal, req: MintRequest): MintResult {
+export async function mint(deps: MintDeps, principal: Principal, req: MintRequest): Promise<MintResult> {
   const newToken = deps.newToken ?? generateToken;
   const isConsentValid = deps.isConsentValid ?? ((r: string) => !!r);
   const intent: Intent = req.intent ?? "share";
@@ -101,7 +101,7 @@ export function mint(deps: MintDeps, principal: Principal, req: MintRequest): Mi
     expiresAt: new Date(now.getTime() + ttl * 1000).toISOString(),
     ttl,
   };
-  deps.tokens.put(record);
+  await deps.tokens.put(record);
 
   return {
     token,

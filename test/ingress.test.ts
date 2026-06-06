@@ -16,7 +16,7 @@ function tokenRec(over: Partial<ShareTokenRecord> = {}): ShareTokenRecord {
     linkSource: "shortcut",
     payload: { kind: "url", url: "https://example.com/article" },
     createdAt: "2026-06-05T17:59:00.000Z",
-    expiresAt: "2026-06-05T18:10:00.000Z", // future vs NOW
+    expiresAt: "2026-06-05T18:10:00.000Z",
     ttl: 900,
     ...over,
   };
@@ -26,101 +26,101 @@ function inbound(over: Partial<AmbInbound> = {}): AmbInbound {
   return { opaqueId: "opaqueA", body: `poke:${TOK}`, receivedAt: NOW.toISOString(), ...over };
 }
 
-function setup(seed?: ShareTokenRecord) {
+async function setup(seed?: ShareTokenRecord) {
   const tokens = new InMemoryTokenStore();
   const continuity = new InMemoryContinuityStore();
   const msp = new MockMsp();
-  if (seed) tokens.put(seed);
+  if (seed) await tokens.put(seed);
   const deps: ResolveDeps = { tokens, continuity, msp, clock };
   return { tokens, continuity, msp, deps };
 }
 
 describe("resolve (AMB ingress)", () => {
-  it("branch 2d: a valid unconsumed ANONYMOUS token links the opaqueId, consumes the token, routes share — no account bound", () => {
-    const { tokens, continuity, msp, deps } = setup(tokenRec());
-    const out = resolve(deps, inbound());
+  it("branch 2d: a valid unconsumed ANONYMOUS token links the opaqueId, consumes the token, routes share — no account bound", async () => {
+    const { tokens, continuity, msp, deps } = await setup(tokenRec());
+    const out = await resolve(deps, inbound());
     expect(out.branch).toBe("bound");
     expect(out.accountBound).toBe(false);
     expect(out.routedIntent).toBe("share");
-    const link = continuity.get("opaqueA")!;
+    const link = (await continuity.get("opaqueA"))!;
     expect(link.linkedVia).toBe("share");
     expect(link.linkSource).toBe("shortcut");
     expect(link.pokeAccountId).toBeUndefined();
-    expect(tokens.get(TOK)?.consumedBy).toBe("opaqueA");
-    expect(msp.sent[0]!.msg.aiLabeled).toBe(true); // reply went through sendAmb
+    expect((await tokens.get(TOK))?.consumedBy).toBe("opaqueA");
+    expect(msp.sent[0]!.msg.aiLabeled).toBe(true);
   });
 
-  it("branch 2d: an ACCOUNT-BOUND token with valid consent binds the account", () => {
-    const { continuity, deps } = setup(
+  it("branch 2d: an ACCOUNT-BOUND token with valid consent binds the account", async () => {
+    const { continuity, deps } = await setup(
       tokenRec({ tokenClass: "account-bound", pokeAccountIdRef: "acct_42", consentRef: "c1" }),
     );
-    const out = resolve(deps, inbound());
+    const out = await resolve(deps, inbound());
     expect(out.accountBound).toBe(true);
-    const link = continuity.get("opaqueA")!;
+    const link = (await continuity.get("opaqueA"))!;
     expect(link.pokeAccountId).toBe("acct_42");
     expect(link.consentRef).toBe("c1");
     expect(link.consentAt).toBe(NOW.toISOString());
   });
 
-  it("branch 2c: replay by the SAME opaqueId does not re-process or double-reply", () => {
-    const { msp, deps } = setup(tokenRec());
-    resolve(deps, inbound());
-    const out2 = resolve(deps, inbound());
+  it("branch 2c: replay by the SAME opaqueId does not re-process or double-reply", async () => {
+    const { msp, deps } = await setup(tokenRec());
+    await resolve(deps, inbound());
+    const out2 = await resolve(deps, inbound());
     expect(out2.branch).toBe("replay");
-    expect(msp.sent).toHaveLength(1); // no second reply
+    expect(msp.sent).toHaveLength(1);
   });
 
-  it("branch 2b: a consumed token presented by a DIFFERENT opaqueId is rejected — no bind, no merge", () => {
-    const { tokens, continuity, deps } = setup(tokenRec());
-    resolve(deps, inbound({ opaqueId: "opaqueA" }));
-    const out = resolve(deps, inbound({ opaqueId: "opaqueB" }));
+  it("branch 2b: a consumed token presented by a DIFFERENT opaqueId is rejected — no bind, no merge", async () => {
+    const { tokens, continuity, deps } = await setup(tokenRec());
+    await resolve(deps, inbound({ opaqueId: "opaqueA" }));
+    const out = await resolve(deps, inbound({ opaqueId: "opaqueB" }));
     expect(out.branch).toBe("foreign-reject");
     expect(out.accountBound).toBe(false);
-    expect(continuity.get("opaqueB")?.pokeAccountId).toBeUndefined();
-    expect(tokens.get(TOK)?.consumedBy).toBe("opaqueA"); // unchanged
+    expect((await continuity.get("opaqueB"))?.pokeAccountId).toBeUndefined();
+    expect((await tokens.get(TOK))?.consumedBy).toBe("opaqueA");
   });
 
-  it("concurrent-ish: first opaqueId binds, second is foreign-rejected", () => {
-    const { deps } = setup(tokenRec());
-    expect(resolve(deps, inbound({ opaqueId: "opaqueA" })).branch).toBe("bound");
-    expect(resolve(deps, inbound({ opaqueId: "opaqueB" })).branch).toBe("foreign-reject");
+  it("concurrent-ish: first opaqueId binds, second is foreign-rejected", async () => {
+    const { deps } = await setup(tokenRec());
+    expect((await resolve(deps, inbound({ opaqueId: "opaqueA" }))).branch).toBe("bound");
+    expect((await resolve(deps, inbound({ opaqueId: "opaqueB" }))).branch).toBe("foreign-reject");
   });
 
-  it("branch 2a: an expired token still creates an anonymous link + a degraded labeled reply, never an error or a bind", () => {
-    const { tokens, continuity, msp, deps } = setup(tokenRec({ expiresAt: "2026-06-05T17:55:00.000Z" }));
-    const out = resolve(deps, inbound());
+  it("branch 2a: an expired token still creates an anonymous link + a degraded labeled reply, never an error or a bind", async () => {
+    const { tokens, continuity, msp, deps } = await setup(tokenRec({ expiresAt: "2026-06-05T17:55:00.000Z" }));
+    const out = await resolve(deps, inbound());
     expect(out.branch).toBe("expired");
-    expect(continuity.get("opaqueA")?.pokeAccountId).toBeUndefined();
-    expect(tokens.get(TOK)?.consumedAt).toBeUndefined(); // expired tokens are not consumed
+    expect((await continuity.get("opaqueA"))?.pokeAccountId).toBeUndefined();
+    expect((await tokens.get(TOK))?.consumedAt).toBeUndefined();
     expect(msp.sent[0]!.msg.aiLabeled).toBe(true);
   });
 
-  it("branch 2a: a token-shaped body with no matching record is treated as expired/missing, not an error", () => {
-    const { deps } = setup(); // no seed
-    expect(resolve(deps, inbound()).branch).toBe("expired");
+  it("branch 2a: a token-shaped body with no matching record is treated as expired/missing, not an error", async () => {
+    const { deps } = await setup();
+    expect((await resolve(deps, inbound())).branch).toBe("expired");
   });
 
-  it("branch 4: a cold inbound (no token) creates an anonymous open_chat link and greets", () => {
-    const { continuity, msp, deps } = setup();
-    const out = resolve(deps, inbound({ body: "hey what can you do" }));
+  it("branch 4: a cold inbound (no token) creates an anonymous open_chat link and greets", async () => {
+    const { continuity, msp, deps } = await setup();
+    const out = await resolve(deps, inbound({ body: "hey what can you do" }));
     expect(out.branch).toBe("cold");
-    expect(continuity.get("opaqueA")?.linkedVia).toBe("open_chat");
-    expect(continuity.get("opaqueA")?.linkSource).toBe("cold");
+    expect((await continuity.get("opaqueA"))?.linkedVia).toBe("open_chat");
+    expect((await continuity.get("opaqueA"))?.linkSource).toBe("cold");
     expect(msp.sent[0]!.msg.aiLabeled).toBe(true);
   });
 
-  it("branch 4: cold inbound carries linkSource provenance from bizGroupId so it isn't mislabeled cold", () => {
-    const { continuity, deps } = setup();
-    resolve(deps, inbound({ body: "hi", bizGroupId: "qr" }));
-    expect(continuity.get("opaqueA")?.linkSource).toBe("qr");
+  it("branch 4: cold inbound carries linkSource provenance from bizGroupId so it isn't mislabeled cold", async () => {
+    const { continuity, deps } = await setup();
+    await resolve(deps, inbound({ body: "hi", bizGroupId: "qr" }));
+    expect((await continuity.get("opaqueA"))?.linkSource).toBe("qr");
   });
 
-  it("branch 3: an Invitation acceptance (no token, bizIntentId=invite) routes handleInvite with linkSource invitation", () => {
-    const { continuity, msp, deps } = setup();
-    const out = resolve(deps, inbound({ body: "", bizIntentId: "invite" }));
+  it("branch 3: an Invitation acceptance (no token, bizIntentId=invite) routes handleInvite with linkSource invitation", async () => {
+    const { continuity, msp, deps } = await setup();
+    const out = await resolve(deps, inbound({ body: "", bizIntentId: "invite" }));
     expect(out.branch).toBe("invite");
     expect(out.routedIntent).toBe("invite");
-    expect(continuity.get("opaqueA")?.linkSource).toBe("invitation");
+    expect((await continuity.get("opaqueA"))?.linkSource).toBe("invitation");
     expect(msp.sent[0]!.msg.aiLabeled).toBe(true);
   });
 });
