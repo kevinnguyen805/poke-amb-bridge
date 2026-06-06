@@ -1,4 +1,4 @@
-import { Pool } from "@neondatabase/serverless";
+import { neon } from "@neondatabase/serverless";
 import { InMemoryTokenStore, InMemoryContinuityStore } from "./spine/store";
 import { LoggingMsp } from "./spine/msp";
 import { systemClock } from "./spine/types";
@@ -21,10 +21,15 @@ async function build(): Promise<CoreDeps> {
   const dbUrl = process.env.DATABASE_URL ?? process.env.POSTGRES_URL ?? process.env.DATABASE_URL_UNPOOLED;
 
   if (dbUrl) {
-    const pool = new Pool({ connectionString: dbUrl });
+    // Stateless HTTP query driver — no persistent connection to go stale across invocations.
+    const client = neon(dbUrl, { fullResults: true });
+    const run = client as unknown as (
+      q: string,
+      params: unknown[],
+    ) => Promise<{ rows: unknown[]; rowCount: number | null }>;
     const sql: Sql = async (text, params = []) => {
-      const r = await pool.query(text, params as unknown[]);
-      return { rows: r.rows, rowCount: r.rowCount ?? 0 };
+      const r = await run(text, params as unknown[]);
+      return { rows: r.rows, rowCount: r.rowCount ?? r.rows.length };
     };
     await migrate(sql);
     return {
