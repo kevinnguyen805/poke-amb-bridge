@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Poke One-Channel Bridge</title>
+<style>
+  :root { --bg:#0e0f13; --panel:#16181f; --line:#262932; --ink:#e7e9ee; --muted:#8b93a3; --cobalt:#5b7cff; --green:#3ecf8e; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink);
+    font:15px/1.6 ui-sans-serif,-apple-system,"SF Pro Text",system-ui,sans-serif; }
+  .wrap { max-width:760px; margin:0 auto; padding:64px 24px 80px; }
+  .kicker { font:600 11px ui-monospace,"SF Mono",Menlo,monospace; letter-spacing:.14em;
+    text-transform:uppercase; color:var(--cobalt); }
+  h1 { font-size:30px; margin:10px 0 6px; letter-spacing:-.01em; }
+  .sub { color:var(--muted); margin:0 0 28px; }
+  .pill { display:inline-flex; align-items:center; gap:8px; padding:6px 12px; border:1px solid var(--line);
+    border-radius:999px; background:var(--panel); font:600 13px ui-monospace,Menlo,monospace; }
+  .dot { width:9px; height:9px; border-radius:50%; background:var(--muted); }
+  .dot.ok { background:var(--green); box-shadow:0 0 0 4px rgba(62,207,142,.15); }
+  .dot.bad { background:#ff5c5c; box-shadow:0 0 0 4px rgba(255,92,92,.15); }
+  h2 { font-size:13px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted);
+    margin:36px 0 12px; font-weight:600; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:4px 18px; }
+  .ep { display:flex; gap:12px; align-items:baseline; padding:12px 0; border-bottom:1px solid var(--line);
+    font:13px ui-monospace,Menlo,monospace; }
+  .ep:last-child { border-bottom:none; }
+  .m { color:var(--cobalt); font-weight:700; min-width:46px; }
+  .p { color:var(--ink); }
+  .d { color:var(--muted); margin-left:auto; font-family:inherit; }
+  pre { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:16px;
+    overflow-x:auto; font:12.5px/1.7 ui-monospace,Menlo,monospace; color:var(--ink); }
+  pre .c { color:var(--muted); }
+  p.note { color:var(--muted); font-size:13.5px; }
+  a { color:var(--cobalt); text-decoration:none; }
+  code { color:var(--cobalt); }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="kicker">Reference implementation · iMessage ⇄ Apple Messages for Business</div>
+    <h1>Poke One-Channel Bridge</h1>
+    <p class="sub">Links a user's iMessage identity and their AMB Opaque ID into one logical conversation — token mint, deterministic ingress resolution, single-use CAS, and a compliance egress chokepoint.</p>
+    <span class="pill"><span id="dot" class="dot"></span><span id="status">checking…</span></span>
+
+    <h2>Endpoints</h2>
+    <div class="card">
+      <div class="ep"><span class="m">GET</span><span class="p">/healthz</span><span class="d">liveness</span></div>
+      <div class="ep"><span class="m">POST</span><span class="p">/share</span><span class="d">mint a share token · header x-poke-key</span></div>
+      <div class="ep"><span class="m">POST</span><span class="p">/amb/ingress</span><span class="d">MSP webhook · header x-msp-signature (HMAC-SHA256)</span></div>
+    </div>
+
+    <h2>Try the loop</h2>
+    <pre><span class="c"># 1) mint a token</span>
+curl -X POST $URL/share -H "x-poke-key: pk_shortcut_demo" \
+  -H "content-type: application/json" -d '{"payload":{"kind":"url","url":"https://example.com"}}'
+
+<span class="c"># 2) deliver the (HMAC-signed) first AMB message → {"branch":"bound"}</span>
+<span class="c">#    replaying the same token from another opaqueId → {"branch":"foreign-reject"}</span></pre>
+
+    <p class="note">Reference implementation. The MSP/Apple boundary is mocked (logging), so this serves
+    synthetic traffic; it flips to real Apple Messages for Business traffic once a Business ID and an
+    MSP contract are wired. Runs on Vercel Edge + Neon Postgres.</p>
+  </div>
+
+  <script>
+    document.querySelectorAll("pre").forEach(p => p.innerHTML = p.innerHTML.replaceAll("$URL", location.origin));
+    fetch("/healthz").then(r => r.ok ? r.json() : Promise.reject()).then(() => {
+      document.getElementById("dot").className = "dot ok";
+      document.getElementById("status").textContent = "live · healthy";
+    }).catch(() => {
+      document.getElementById("dot").className = "dot bad";
+      document.getElementById("status").textContent = "unreachable";
+    });
+  </script>
+</body>
+</html>
