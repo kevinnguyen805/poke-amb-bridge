@@ -34,6 +34,11 @@
   p.note { color:var(--muted); font-size:13.5px; }
   a { color:var(--cobalt); text-decoration:none; }
   code { color:var(--cobalt); }
+  .btns { display:flex; flex-wrap:wrap; gap:10px; }
+  .btn { display:inline-flex; align-items:center; padding:10px 16px; border:1px solid var(--line);
+    border-radius:10px; background:var(--panel); color:var(--ink); font-size:14px; font-weight:600; transition:border-color .15s; }
+  .btn:hover { border-color:var(--cobalt); }
+  .btn.primary { background:var(--cobalt); border-color:var(--cobalt); color:#fff; }
 </style>
 </head>
 <body>
@@ -58,9 +63,17 @@ curl -X POST $URL/share -H "x-poke-key: pk_shortcut_demo" \
 <span class="c"># 2) deliver the (HMAC-signed) first AMB message → {"branch":"bound"}</span>
 <span class="c">#    replaying the same token from another opaqueId → {"branch":"foreign-reject"}</span></pre>
 
-    <p class="note">Reference implementation. The MSP/Apple boundary is mocked (logging), so this serves
-    synthetic traffic; it flips to real Apple Messages for Business traffic once a Business ID and an
-    MSP contract are wired. Runs on Vercel Edge + Neon Postgres.</p>
+    <h2>Doorways</h2>
+    <div class="btns">
+      <a class="btn primary" href="/open">Open in Apple Messages</a>
+      <a class="btn" href="/vcard">Save contact card (.vcf)</a>
+      <a class="btn" href="/wallet">Wallet pass (JSON)</a>
+    </div>
+
+    <p class="note">Reference implementation, running on Vercel Edge + Neon Postgres. The doorways use the
+    demo Business ID until the real Poke one is set, and the Wallet pass needs an Apple signing certificate
+    to become installable. The MSP/Apple boundary is mocked (logging), so this serves synthetic traffic; it
+    flips to real Apple Messages for Business traffic once a Business ID and an MSP contract are wired.</p>
   </div>
 
   <script>

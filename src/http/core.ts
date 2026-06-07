@@ -1,8 +1,12 @@
 import { mint, MintError, type Principal } from "../spine/mint";
 import { resolve } from "../spine/ingress";
 import type { TokenStore, ContinuityStore } from "../spine/store";
+import type { RateLimiter } from "../spine/ratelimit";
 import type { Msp } from "../spine/msp";
 import type { AmbInbound, Clock } from "../spine/types";
+
+const SHARE_RATE_MAX = 30;
+const SHARE_RATE_WINDOW_SEC = 60;
 
 /** Transport-agnostic dependencies — shared by the node:http server and the Vercel functions. */
 export type CoreDeps = {
@@ -13,6 +17,7 @@ export type CoreDeps = {
   businessUuid: string;
   scopedKey: string;
   mspSecret: string;
+  rateLimiter?: RateLimiter;
   sessionResolver?: (bearer: string) => { pokeAccountId: string } | undefined;
 };
 
@@ -59,8 +64,18 @@ export async function verifyHmac(raw: string, sig: string | undefined, secret: s
   return safeEq(sig, await hmacHex(secret, raw));
 }
 
+function clientIp(h: Headers): string {
+  const xff = h["x-forwarded-for"];
+  if (xff) return xff.split(",")[0]!.trim();
+  return h["x-real-ip"] ?? h["x-vercel-forwarded-for"] ?? "unknown";
+}
+
 /** POST /share — the Shortcut/web entry. Credential class determines the token class. */
 export async function handleShare(deps: CoreDeps, headers: Headers, rawBody: string): Promise<CoreResult> {
+  if (deps.rateLimiter) {
+    const { allowed } = await deps.rateLimiter.hit(`share:${clientIp(headers)}`, SHARE_RATE_MAX, SHARE_RATE_WINDOW_SEC);
+    if (!allowed) return { status: 429, json: { error: "rate_limited" } };
+  }
   const principal = principalFromHeaders(headers, deps);
   if (!principal) return { status: 401, json: { error: "unauthorized" } };
   let body: { payload?: unknown };

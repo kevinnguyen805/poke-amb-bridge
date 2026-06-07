@@ -1,8 +1,9 @@
 import { neon } from "@neondatabase/serverless";
 import { InMemoryTokenStore, InMemoryContinuityStore } from "./spine/store";
+import { InMemoryRateLimiter } from "./spine/ratelimit";
 import { LoggingMsp } from "./spine/msp";
 import { systemClock } from "./spine/types";
-import { PgTokenStore, PgContinuityStore, migrate, type Sql } from "./store/pg";
+import { PgTokenStore, PgContinuityStore, PgRateLimiter, migrate, type Sql } from "./store/pg";
 import type { CoreDeps } from "./http/core";
 
 // Cache the built deps (and the one-time migration) for the lifetime of a warm instance.
@@ -13,8 +14,18 @@ export function depsFromEnv(): Promise<CoreDeps> {
   return cached;
 }
 
+/** Public scalar config (no DB) — used by the DB-free doorway endpoints (vcard/open/wallet). */
+export function publicConfig() {
+  return {
+    businessUuid: process.env.POKE_BUSINESS_UUID ?? "11111111-2222-3333-4444-555555555555",
+    imessageNumber: process.env.POKE_IMESSAGE_NUMBER ?? "+1-555-0100",
+    passTypeId: process.env.POKE_PASS_TYPE_ID ?? "pass.com.poke.bridge",
+    teamId: process.env.POKE_TEAM_ID ?? "TEAMID0000",
+  };
+}
+
 async function build(): Promise<CoreDeps> {
-  const businessUuid = process.env.POKE_BUSINESS_UUID ?? "11111111-2222-3333-4444-555555555555";
+  const businessUuid = publicConfig().businessUuid;
   const scopedKey = process.env.POKE_SCOPED_KEY ?? "pk_shortcut_demo";
   const mspSecret = process.env.MSP_SECRET ?? "msp_secret_demo";
   // Neon's Vercel integration may expose the URL under any of these names.
@@ -35,6 +46,7 @@ async function build(): Promise<CoreDeps> {
     return {
       tokens: new PgTokenStore(sql),
       continuity: new PgContinuityStore(sql),
+      rateLimiter: new PgRateLimiter(sql),
       msp: new LoggingMsp(),
       clock: systemClock,
       businessUuid,
@@ -47,6 +59,7 @@ async function build(): Promise<CoreDeps> {
   return {
     tokens: new InMemoryTokenStore(),
     continuity: new InMemoryContinuityStore(),
+    rateLimiter: new InMemoryRateLimiter(),
     msp: new LoggingMsp(),
     clock: systemClock,
     businessUuid,

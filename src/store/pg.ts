@@ -1,4 +1,5 @@
 import type { TokenStore, ContinuityStore, ConsumeResult } from "../spine/store";
+import type { RateLimiter } from "../spine/ratelimit";
 import type {
   AgentState,
   ContinuityLink,
@@ -59,6 +60,10 @@ export async function migrate(sql: Sql): Promise<void> {
       agent_state text NOT NULL, first_linked_at text NOT NULL, last_seen_at text NOT NULL,
       last_inbound_at text NOT NULL, linked_via text NOT NULL, link_source text NOT NULL,
       always_reply_on_amb boolean, relink_of text)`,
+  );
+  await sql(
+    `CREATE TABLE IF NOT EXISTS rate_limits (
+      key text PRIMARY KEY, window_start bigint NOT NULL, count integer NOT NULL)`,
   );
 }
 
@@ -165,5 +170,27 @@ export class PgContinuityStore implements ContinuityStore {
         link.linkedVia, link.linkSource, link.alwaysReplyOnAMB ?? null, link.relinkOf ?? null,
       ],
     );
+  }
+}
+
+/** Fixed-window rate limiter backed by a single atomic upsert. */
+export class PgRateLimiter implements RateLimiter {
+  constructor(
+    private sql: Sql,
+    private nowMs: () => number = () => Date.now(),
+  ) {}
+
+  async hit(key: string, max: number, windowSec: number): Promise<{ allowed: boolean; count: number }> {
+    const bucket = Math.floor(this.nowMs() / 1000 / windowSec);
+    const r = await this.sql(
+      `INSERT INTO rate_limits (key, window_start, count) VALUES ($1, $2, 1)
+       ON CONFLICT (key) DO UPDATE SET
+         count = CASE WHEN rate_limits.window_start = EXCLUDED.window_start THEN rate_limits.count + 1 ELSE 1 END,
+         window_start = EXCLUDED.window_start
+       RETURNING count`,
+      [key, bucket],
+    );
+    const count = Number((r.rows[0] as { count: number }).count);
+    return { allowed: count <= max, count };
   }
 }

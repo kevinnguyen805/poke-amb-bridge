@@ -3,6 +3,9 @@
   "rewrites": [
     { "source": "/share", "destination": "/api/share" },
     { "source": "/amb/ingress", "destination": "/api/amb/ingress" },
-    { "source": "/healthz", "destination": "/api/healthz" }
+    { "source": "/healthz", "destination": "/api/healthz" },
+    { "source": "/vcard", "destination": "/api/vcard" },
+    { "source": "/open", "destination": "/api/open" },
+    { "source": "/wallet", "destination": "/api/wallet" }
   ]
 }
