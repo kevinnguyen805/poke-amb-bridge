@@ -43,3 +43,39 @@ describe("mcp tools/call get_share_shortcut", () => {
     expect(json.result.content[0].text).toContain("icloud.com/shortcuts/");
   });
 });
+
+// Streamable HTTP transport: MCP clients (Poke) send `Accept: text/event-stream`
+// and expect the JSON-RPC result framed as a Server-Sent Event, not plain JSON.
+describe("mcp streamable-http transport", () => {
+  it("frames the response as SSE when the client accepts text/event-stream", async () => {
+    const res = await handler(
+      post(
+        { jsonrpc: "2.0", id: 7, method: "tools/call", params: { name: "get_share_shortcut", arguments: {} } },
+        { accept: "application/json, text/event-stream" },
+      ),
+    );
+    expect(res.headers.get("content-type")).toContain("text/event-stream");
+    const body = await res.text();
+    expect(body).toContain("event: message");
+    const dataLine = body.split("\n").find((l) => l.startsWith("data:"));
+    expect(dataLine).toBeTruthy();
+    const payload = JSON.parse(dataLine!.replace(/^data:\s*/, ""));
+    expect(payload.result.content[0].text).toContain("icloud.com/shortcuts/");
+  });
+
+  it("falls back to plain JSON when the client does not accept event-stream", async () => {
+    const res = await handler(
+      post({ jsonrpc: "2.0", id: 8, method: "tools/list", params: {} }, { accept: "application/json" }),
+    );
+    expect(res.headers.get("content-type")).toContain("application/json");
+    const json: any = await res.json();
+    expect(json.result.tools.length).toBe(4);
+  });
+
+  it("answers a GET SSE-stream open with 405 (no server-initiated stream)", async () => {
+    const res = await handler(
+      new Request("https://x/mcp", { method: "GET", headers: { accept: "text/event-stream" } }),
+    );
+    expect(res.status).toBe(405);
+  });
+});

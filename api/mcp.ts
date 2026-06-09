@@ -81,11 +81,31 @@ async function callTool(name: string, args: any, userId: string): Promise<string
 function json(obj: unknown, status = 200): Response {
   return new Response(JSON.stringify(obj), { status, headers: { "content-type": "application/json" } });
 }
-const ok = (id: unknown, result: unknown) => json({ jsonrpc: "2.0", id, result });
-const err = (id: unknown, code: number, message: string) => json({ jsonrpc: "2.0", id, error: { code, message } });
+
+// MCP Streamable HTTP: clients (Poke) send `Accept: text/event-stream` and expect the
+// JSON-RPC result delivered as a single Server-Sent Event — a plain application/json body
+// reads to them as an unparseable failure. Negotiate on Accept; keep JSON for simple clients.
+function wantsSse(req: Request): boolean {
+  return (req.headers.get("accept") ?? "").includes("text/event-stream");
+}
+function rpc(req: Request, payload: unknown): Response {
+  if (!wantsSse(req)) return json(payload);
+  const body = `event: message\ndata: ${JSON.stringify(payload)}\n\n`;
+  return new Response(body, {
+    status: 200,
+    headers: { "content-type": "text/event-stream; charset=utf-8", "cache-control": "no-cache, no-transform" },
+  });
+}
+const ok = (req: Request, id: unknown, result: unknown) => rpc(req, { jsonrpc: "2.0", id, result });
+const err = (req: Request, id: unknown, code: number, message: string) =>
+  rpc(req, { jsonrpc: "2.0", id, error: { code, message } });
 
 export default async function handler(req: Request): Promise<Response> {
-  if (req.method === "GET") return json({ name: "poke-link-companion", version: "0.1.0", status: "ok" });
+  if (req.method === "GET") {
+    // MCP clients open a GET SSE stream for server-initiated messages; we push none → 405.
+    if (wantsSse(req)) return new Response("No server-initiated stream", { status: 405 });
+    return json({ name: "poke-link-companion", version: "0.1.0", status: "ok" });
+  }
   if (req.method !== "POST") return json({ error: "method not allowed" }, 405);
 
   const userId = req.headers.get("x-poke-user-id") ?? "anonymous";
@@ -93,14 +113,14 @@ export default async function handler(req: Request): Promise<Response> {
   try {
     msg = await req.json();
   } catch {
-    return err(null, -32700, "Parse error");
+    return err(req, null, -32700, "Parse error");
   }
   const { id = null, method, params } = msg ?? {};
 
   try {
     switch (method) {
       case "initialize":
-        return ok(id, {
+        return ok(req, id, {
           protocolVersion: params?.protocolVersion ?? "2025-06-18",
           capabilities: { tools: { listChanged: false } },
           serverInfo: { name: "poke-link-companion", version: "0.1.0" },
@@ -110,17 +130,17 @@ export default async function handler(req: Request): Promise<Response> {
       case "notifications/cancelled":
         return new Response(null, { status: 202 });
       case "ping":
-        return ok(id, {});
+        return ok(req, id, {});
       case "tools/list":
-        return ok(id, { tools: TOOLS });
+        return ok(req, id, { tools: TOOLS });
       case "tools/call": {
         const text = await callTool(params?.name, params?.arguments ?? {}, userId);
-        return ok(id, { content: [{ type: "text", text }] });
+        return ok(req, id, { content: [{ type: "text", text }] });
       }
       default:
-        return err(id, -32601, `Method not found: ${method}`);
+        return err(req, id, -32601, `Method not found: ${method}`);
     }
   } catch (e) {
-    return err(id, -32603, String((e as Error)?.message ?? e));
+    return err(req, id, -32603, String((e as Error)?.message ?? e));
   }
 }
