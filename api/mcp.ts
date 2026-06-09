@@ -10,6 +10,17 @@ const SHORTCUT_INFO =
   `Here's the "Message Poke" Shortcut — install it once to share links to Poke from any app:\n${SHORTCUT_URL}\n\n` +
   `After installing: in any app tap Share → "Message Poke" → a Poke chat opens with your link pre-filled → tap Send.`;
 
+// MCP `instructions` — onboarding behavior Poke reads at connect time. This is the
+// home for "introduce the abilities, don't auto-act"; tool descriptions only gate calls.
+const INSTRUCTIONS =
+  "Link Companion lets the user save, search, read, and share links — all inside this chat. " +
+  "When the user first interacts (or shares their first link), briefly introduce what you can do with a link: " +
+  "(1) save it to their personal list, (2) find saved links later by keyword, (3) read/summarize a page for them, " +
+  "and (4) hand them the iOS \"Message Poke\" Shortcut to share links from any app. Then wait for them to choose. " +
+  "Do NOT act on a shared link automatically: only call save_link when they ask to save/bookmark, only call list_links " +
+  "when they ask to see saved links, only call fetch_link when they ask about a page's contents, and only call " +
+  "get_share_shortcut when they ask how to send you links from other apps.";
+
 const TOOLS = [
   {
     name: "get_share_shortcut",
@@ -93,6 +104,7 @@ export default async function handler(req: Request): Promise<Response> {
           protocolVersion: params?.protocolVersion ?? "2025-06-18",
           capabilities: { tools: { listChanged: false } },
           serverInfo: { name: "poke-link-companion", version: "0.1.0" },
+          instructions: INSTRUCTIONS,
         });
       case "notifications/initialized":
       case "notifications/cancelled":
