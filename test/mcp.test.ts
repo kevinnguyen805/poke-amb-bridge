@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, afterEach } from "vitest";
 import handler from "../api/mcp";
 
 function post(body: unknown, headers: Record<string, string> = {}): Request {
@@ -80,5 +80,66 @@ describe("mcp streamable-http transport", () => {
       new Request("https://x/mcp", { method: "GET", headers: { accept: "text/event-stream" } }),
     );
     expect(res.status).toBe(405);
+  });
+});
+
+// Tier-1 auth: data tools (save/list/fetch) require a credential when MCP_AUTH_ENFORCE=true
+// (Authorization: Bearer <key> OR x-poke-key); get_share_shortcut + discovery stay open. With the
+// flag unset it's diagnostic-only — logs but never rejects. POKE_SCOPED_KEY is unset in tests, so
+// the accepted key is the "pk_shortcut_demo" default.
+describe("mcp data-tool auth gate", () => {
+  afterEach(() => {
+    delete process.env.MCP_AUTH_ENFORCE;
+  });
+
+  it("diagnostic mode (default): does NOT reject a data tool sent with no credential", async () => {
+    const res = await handler(
+      post({ jsonrpc: "2.0", id: 10, method: "tools/call", params: { name: "list_links", arguments: {} } }),
+    );
+    const json: any = await res.json();
+    expect(json.error?.code).not.toBe(-32001);
+  });
+
+  it("enforce mode: rejects list_links with no credential (-32001)", async () => {
+    process.env.MCP_AUTH_ENFORCE = "true";
+    const res = await handler(
+      post({ jsonrpc: "2.0", id: 11, method: "tools/call", params: { name: "list_links", arguments: {} } }),
+    );
+    const json: any = await res.json();
+    expect(json.error?.code).toBe(-32001);
+  });
+
+  it("enforce mode: accepts a valid Authorization: Bearer <key>", async () => {
+    process.env.MCP_AUTH_ENFORCE = "true";
+    const res = await handler(
+      post(
+        { jsonrpc: "2.0", id: 12, method: "tools/call", params: { name: "list_links", arguments: {} } },
+        { authorization: "Bearer pk_shortcut_demo" },
+      ),
+    );
+    const json: any = await res.json();
+    expect(json.error?.code).not.toBe(-32001);
+  });
+
+  it("enforce mode: accepts a valid x-poke-key", async () => {
+    process.env.MCP_AUTH_ENFORCE = "true";
+    const res = await handler(
+      post(
+        { jsonrpc: "2.0", id: 13, method: "tools/call", params: { name: "save_link", arguments: { url: "https://x.com" } } },
+        { "x-poke-key": "pk_shortcut_demo" },
+      ),
+    );
+    const json: any = await res.json();
+    expect(json.error?.code).not.toBe(-32001);
+  });
+
+  it("enforce mode: leaves get_share_shortcut open (no credential needed)", async () => {
+    process.env.MCP_AUTH_ENFORCE = "true";
+    const res = await handler(
+      post({ jsonrpc: "2.0", id: 14, method: "tools/call", params: { name: "get_share_shortcut", arguments: {} } }),
+    );
+    const json: any = await res.json();
+    expect(json.error).toBeUndefined();
+    expect(json.result.content[0].text).toContain("icloud.com/shortcuts/");
   });
 });

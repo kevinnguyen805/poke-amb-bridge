@@ -60,6 +60,20 @@ const TOOLS = [
   },
 ];
 
+// Data tools touch user data (read/write/fetch) so they require the scoped key; the static
+// get_share_shortcut + discovery methods (initialize/tools/list/ping) stay open. Poke sends
+// the key as an `x-poke-key` header (set in its MCP integration config); value = POKE_SCOPED_KEY.
+const SCOPED_KEY = process.env.POKE_SCOPED_KEY ?? "pk_shortcut_demo";
+const DATA_TOOLS = new Set(["save_link", "list_links", "fetch_link"]);
+
+/** Constant-time string comparison (no early-out on first mismatch). */
+function safeEq(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
 async function callTool(name: string, args: any, userId: string): Promise<string> {
   switch (name) {
     case "get_share_shortcut":
@@ -122,6 +136,18 @@ export default async function handler(req: Request): Promise<Response> {
   // Diagnostic: surfaces which JSON-RPC method / tool Poke actually invokes (Vercel runtime logs).
   console.log(`MCP_REQ method=${method ?? "?"} tool=${params?.name ?? "-"} accept=${wantsSse(req) ? "sse" : "json"} user=${userId}`);
 
+  // AUTH DIAGNOSTIC — learn how the caller authenticates + whether a user-id arrives. Logs the
+  // scheme + a match boolean (never the raw secret), front-loaded so it survives log truncation.
+  const authHdr = req.headers.get("authorization") ?? "";
+  const scheme = authHdr ? (authHdr.includes(" ") ? authHdr.split(" ")[0] : "raw") : "none";
+  const bearer = /^bearer /i.test(authHdr) ? authHdr.slice(7) : "";
+  const xkeyHdr = req.headers.get("x-poke-key") ?? "";
+  const authed =
+    (bearer !== "" && safeEq(bearer, SCOPED_KEY)) || (xkeyHdr !== "" && safeEq(xkeyHdr, SCOPED_KEY));
+  const rawUid = req.headers.get("x-poke-user-id");
+  console.log(`MCPAUTH m=${authed ? 1 : 0} sch=${scheme} xk=${xkeyHdr ? 1 : 0}`);
+  console.log(`MCPUID ${rawUid === null ? "absent" : rawUid === "" ? "empty" : rawUid}`);
+
   try {
     switch (method) {
       case "initialize":
@@ -139,7 +165,18 @@ export default async function handler(req: Request): Promise<Response> {
       case "tools/list":
         return ok(req, id, { tools: TOOLS });
       case "tools/call": {
-        const text = await callTool(params?.name, params?.arguments ?? {}, userId);
+        const name = params?.name;
+        // Gate data tools (save/list/fetch); get_share_shortcut stays open. Enforcement is behind
+        // MCP_AUTH_ENFORCE so this ships diagnostic-only first (logs above, no rejection).
+        if (
+          typeof name === "string" &&
+          DATA_TOOLS.has(name) &&
+          !authed &&
+          process.env.MCP_AUTH_ENFORCE === "true"
+        ) {
+          return err(req, id, -32001, `unauthorized: tool '${name}' requires authentication (Bearer API key or x-poke-key)`);
+        }
+        const text = await callTool(name, params?.arguments ?? {}, userId);
         return ok(req, id, { content: [{ type: "text", text }] });
       }
       default:
