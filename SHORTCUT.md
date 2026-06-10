@@ -16,7 +16,7 @@ Verified live against `POST https://poke-amb-bridge.vercel.app/links/ingest`
 | **URL** | `https://poke-amb-bridge.vercel.app/links/ingest` |
 | **Method** | `POST` |
 | **`x-poke-key`** | auth — your `POKE_SCOPED_KEY` (now set in prod; the old `pk_shortcut_demo` no longer works — see §5) |
-| **`x-poke-user-id`** | **whose list** to save to — must match the id Poke uses (see §4). Omit → saves to `anonymous` |
+| **`x-poke-user-id`** | **whose list** — your **personal** Poke user id (kept private; see §4). Omit → `anonymous` |
 | **`Content-Type`** | `application/json` (Shortcuts sets this automatically for a JSON body) |
 
 **Request body**
@@ -56,7 +56,7 @@ Verified live against `POST https://poke-amb-bridge.vercel.app/links/ingest`
    - **Method:** `POST`
    - **Headers** (＋ for each):
      - `x-poke-key` → `<your POKE_SCOPED_KEY>`  *(the value set in §5 — not the demo key)*
-     - `x-poke-user-id` → `<your-poke-user-id>`  *(§4)*
+     - `x-poke-user-id` → `<your personal Poke user id>`  *(§4 — kept private)*
    - **Request Body:** **JSON** → add fields:
      - `url`  *(Text)*  = the **URLs** magic variable from step 4
      - *(optional)* `note`  *(Text)*  = e.g. `via Shortcut`
@@ -73,7 +73,7 @@ Verified live against `POST https://poke-amb-bridge.vercel.app/links/ingest`
 ```bash
 curl -s -X POST https://poke-amb-bridge.vercel.app/links/ingest \
   -H "x-poke-key: <your-POKE_SCOPED_KEY>" \
-  -H "x-poke-user-id: <your-poke-user-id>" \
+  -H "x-poke-user-id: <your-personal-poke-user-id>" \
   -H "content-type: application/json" \
   -d '{"url":"https://example.com/article","tags":["shortcut"]}' -w "\n[%{http_code}]\n"
 # expect: {"saved":{...}}  [201]
@@ -81,19 +81,24 @@ curl -s -X POST https://poke-amb-bridge.vercel.app/links/ingest \
 
 ---
 
-## 4. Finding your Poke user id (the one detail that makes it cohere)
+## 4. Your Poke user id (kept private — not in this public repo)
 
-The Shortcut's `x-poke-user-id` **must equal** the `X-Poke-User-Id` Poke sends when
-you use the recipe — otherwise Shortcut-saved links sit in a *different bucket* than
-your Poke chat reads from.
+Use **your personal Poke user id** — the UUID Poke maps to your personal companion list. It's
+**not committed here** (this repo is public); use the value you have separately. Put it in the
+`x-poke-user-id` header. Verified end-to-end: a marker link ingested under it read back via
+`list_links` alongside your real saves.
 
-To find it: **Vercel → project `poke-amb-bridge` → Logs (Runtime)**, then interact with
-the Link Companion recipe in Poke (e.g. ask it to list your links). Read the
-`MCP_REQ method=… user=<id>` line — that `<id>` is your value. Paste it into the
-Shortcut's `x-poke-user-id` header.
-
-(For a personal single-user setup this is a one-time lookup; for a multi-user recipe
-each user needs their own id baked into their own copy of the Shortcut.)
+> 🔒 **Why it's private:** the `/mcp` read path (`list_links`) is currently **unauthenticated** —
+> it returns whatever `x-poke-user-id` you pass, with no key. So your user id acts as a
+> *read-credential* for your link list; publishing it would let anyone read your saves. Treat it
+> like the `x-poke-key`.
+>
+> ⚠️ **Not the business id.** `6e67a89b-cd37-4c25-ad21-1b942f2a0f14` is Poke's **business-level
+> AMB id** (public, but the wrong bucket for your personal list).
+>
+> ⚠️ **Before a public multi-user recipe:** Poke exposes per-user ids, so scoping works if the
+> recipe lets Poke send each user's own id (don't hardcode one) — **and** the unauthenticated
+> `/mcp` read path needs real auth (today any known user id reads that user's links). See memory.
 
 ---
 
