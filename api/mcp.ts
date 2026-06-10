@@ -17,9 +17,12 @@ const INSTRUCTIONS =
   "When the user first interacts (or shares their first link), briefly introduce what you can do with a link: " +
   "(1) save it to their personal list, (2) find saved links later by keyword, (3) read/summarize a page for them, " +
   "and (4) hand them the iOS \"Message Poke\" Shortcut to share links from any app. Then wait for them to choose. " +
+  `The Shortcut install link is ${SHORTCUT_URL} — when the user asks how to share links from other apps, you can give them ` +
+  "this link and these steps directly, no tool call required: after installing, in any app tap Share → \"Message Poke\" → " +
+  "a Poke chat opens with the link pre-filled → tap Send. " +
   "Do NOT act on a shared link automatically: only call save_link when they ask to save/bookmark, only call list_links " +
   "when they ask to see saved links, only call fetch_link when they ask about a page's contents, and only call " +
-  "get_share_shortcut when they ask how to send you links from other apps.";
+  "get_share_shortcut when they ask how to send you links from other apps (it returns this same link and steps).";
 
 const TOOLS = [
   {

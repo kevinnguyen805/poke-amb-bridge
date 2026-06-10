@@ -22,6 +22,9 @@ describe("mcp initialize", () => {
     const instr = json.result.instructions.toLowerCase();
     expect(instr).toContain("save");
     expect(instr).toContain("do not");
+    // The shortcut URL is folded into instructions so the recipe can hand it out
+    // without depending on the get_share_shortcut tool call being delivered.
+    expect(instr).toContain("icloud.com/shortcuts/");
   });
 });
 
