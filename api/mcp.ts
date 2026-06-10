@@ -134,19 +134,20 @@ export default async function handler(req: Request): Promise<Response> {
   }
   const { id = null, method, params } = msg ?? {};
   // Diagnostic: surfaces which JSON-RPC method / tool Poke actually invokes (Vercel runtime logs).
-  console.log(`MCP_REQ method=${method ?? "?"} tool=${params?.name ?? "-"} accept=${wantsSse(req) ? "sse" : "json"} user=${userId}`);
-
-  // AUTH DIAGNOSTIC — learn how the caller authenticates + whether a user-id arrives. Logs the
-  // scheme + a match boolean (never the raw secret), front-loaded so it survives log truncation.
+  // AUTH DIAGNOSTIC — Vercel's log viewer shows only the first ~30 chars of ONE line per request,
+  // so fold everything into a single front-loaded line: a=credential-matched, then how it arrived
+  // (Bearer / xkey / rawauth / none), then the user-id prefix. Never logs the raw secret.
   const authHdr = req.headers.get("authorization") ?? "";
-  const scheme = authHdr ? (authHdr.includes(" ") ? authHdr.split(" ")[0] : "raw") : "none";
   const bearer = /^bearer /i.test(authHdr) ? authHdr.slice(7) : "";
   const xkeyHdr = req.headers.get("x-poke-key") ?? "";
+  const cred = bearer !== "" ? "Bearer" : xkeyHdr !== "" ? "xkey" : authHdr !== "" ? "rawauth" : "none";
   const authed =
     (bearer !== "" && safeEq(bearer, SCOPED_KEY)) || (xkeyHdr !== "" && safeEq(xkeyHdr, SCOPED_KEY));
   const rawUid = req.headers.get("x-poke-user-id");
-  console.log(`MCPAUTH m=${authed ? 1 : 0} sch=${scheme} xk=${xkeyHdr ? 1 : 0}`);
-  console.log(`MCPUID ${rawUid === null ? "absent" : rawUid === "" ? "empty" : rawUid}`);
+  const uid8 = rawUid === null ? "absent" : rawUid === "" ? "empty" : rawUid.slice(0, 8);
+  console.log(
+    `MCP_REQ a=${authed ? 1 : 0} ${cred} u=${uid8} method=${method ?? "?"} tool=${params?.name ?? "-"} accept=${wantsSse(req) ? "sse" : "json"}`,
+  );
 
   try {
     switch (method) {
