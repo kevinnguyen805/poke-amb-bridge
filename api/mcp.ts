@@ -116,6 +116,8 @@ export default async function handler(req: Request): Promise<Response> {
     return err(req, null, -32700, "Parse error");
   }
   const { id = null, method, params } = msg ?? {};
+  // Diagnostic: surfaces which JSON-RPC method / tool Poke actually invokes (Vercel runtime logs).
+  console.log(`MCP_REQ method=${method ?? "?"} tool=${params?.name ?? "-"} accept=${wantsSse(req) ? "sse" : "json"} user=${userId}`);
 
   try {
     switch (method) {
