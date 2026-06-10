@@ -4,9 +4,14 @@ import type { TokenStore, ContinuityStore } from "../spine/store";
 import type { RateLimiter } from "../spine/ratelimit";
 import type { Msp } from "../spine/msp";
 import type { AmbInbound, Clock } from "../spine/types";
+import type { SavedLink } from "../links/store";
 
 const SHARE_RATE_MAX = 30;
 const SHARE_RATE_WINDOW_SEC = 60;
+const INGEST_RATE_MAX = 60;
+const INGEST_RATE_WINDOW_SEC = 60;
+const INGEST_URL_CAP = 2048;
+const INGEST_NOTE_CAP = 512;
 
 /** Transport-agnostic dependencies — shared by the node:http server and the Vercel functions. */
 export type CoreDeps = {
@@ -19,6 +24,8 @@ export type CoreDeps = {
   mspSecret: string;
   rateLimiter?: RateLimiter;
   sessionResolver?: (bearer: string) => { pokeAccountId: string } | undefined;
+  /** Link Companion store writer — injected so the ingest endpoint stays DB-agnostic and testable. */
+  saveLink?: (userId: string, url: string, note?: string, tags?: string[]) => Promise<SavedLink>;
 };
 
 export type Headers = Record<string, string | undefined>;
@@ -110,4 +117,58 @@ export async function handleIngress(deps: CoreDeps, headers: Headers, rawBody: s
     inbound,
   );
   return { status: 200, json: { branch: out.branch, accountBound: out.accountBound, routedIntent: out.routedIntent } };
+}
+
+/**
+ * POST /links/ingest — save a shared link into the Link Companion store (iOS Shortcut / web entry).
+ * Authenticated like /share (x-poke-key scoped key, or a Bearer session). The URL is only STORED,
+ * never fetched, so there is no SSRF surface here (that lives in the fetch_link MCP tool).
+ */
+export async function handleLinkIngest(deps: CoreDeps, headers: Headers, rawBody: string): Promise<CoreResult> {
+  if (deps.rateLimiter) {
+    const { allowed } = await deps.rateLimiter.hit(
+      `links-ingest:${clientIp(headers)}`,
+      INGEST_RATE_MAX,
+      INGEST_RATE_WINDOW_SEC,
+    );
+    if (!allowed) return { status: 429, json: { error: "rate_limited" } };
+  }
+  const principal = principalFromHeaders(headers, deps);
+  if (!principal) return { status: 401, json: { error: "unauthorized" } };
+  if (!deps.saveLink) return { status: 500, json: { error: "link store not configured" } };
+
+  let parsedBody: unknown;
+  try {
+    parsedBody = JSON.parse(rawBody || "{}");
+  } catch {
+    return { status: 400, json: { error: "invalid json" } };
+  }
+  const b = (parsedBody ?? {}) as { url?: unknown; note?: unknown; tags?: unknown };
+
+  const url = b.url;
+  if (typeof url !== "string" || url.length === 0) return { status: 400, json: { error: "url required" } };
+  if (url.length > INGEST_URL_CAP) return { status: 400, json: { error: "url too large" } };
+  let parsedUrl: URL;
+  try {
+    parsedUrl = new URL(url);
+  } catch {
+    return { status: 400, json: { error: "invalid url" } };
+  }
+  if (!["http:", "https:"].includes(parsedUrl.protocol)) {
+    return { status: 400, json: { error: "url scheme not allowed" } };
+  }
+
+  const note = typeof b.note === "string" ? b.note.slice(0, INGEST_NOTE_CAP) : undefined;
+  const tags = Array.isArray(b.tags) ? b.tags.filter((t): t is string => typeof t === "string") : undefined;
+  // Per-user scoping: a session principal carries the Poke account id; scoped-key callers pass the
+  // user via the same X-Poke-User-Id header the MCP save_link tool uses (default "anonymous").
+  const userId = principal.kind === "session" ? principal.pokeAccountId : headers["x-poke-user-id"] ?? "anonymous";
+
+  try {
+    const saved = await deps.saveLink(userId, url, note, tags && tags.length ? tags : undefined);
+    return { status: 201, json: { saved } };
+  } catch {
+    // A store/DB write failure is transient and server-side — surface it cleanly, not as a raw 500.
+    return { status: 503, json: { error: "store_unavailable" } };
+  }
 }

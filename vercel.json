@@ -7,6 +7,7 @@
     { "source": "/vcard", "destination": "/api/vcard" },
     { "source": "/open", "destination": "/api/open" },
     { "source": "/wallet", "destination": "/api/wallet" },
-    { "source": "/mcp", "destination": "/api/mcp" }
+    { "source": "/mcp", "destination": "/api/mcp" },
+    { "source": "/links/ingest", "destination": "/api/links/ingest" }
   ]
 }

@@ -5,6 +5,7 @@ import { LoggingMsp } from "./spine/msp";
 import { systemClock } from "./spine/types";
 import { PgTokenStore, PgContinuityStore, PgRateLimiter, migrate, type Sql } from "./store/pg";
 import type { CoreDeps } from "./http/core";
+import { saveLink } from "./links/store";
 
 // Cache the built deps (and the one-time migration) for the lifetime of a warm instance.
 let cached: Promise<CoreDeps> | undefined;
@@ -52,6 +53,7 @@ async function build(): Promise<CoreDeps> {
       businessUuid,
       scopedKey,
       mspSecret,
+      saveLink,
     };
   }
 
@@ -65,5 +67,6 @@ async function build(): Promise<CoreDeps> {
     businessUuid,
     scopedKey,
     mspSecret,
+    saveLink,
   };
 }

@@ -1,5 +1,5 @@
 import { createServer as nodeCreateServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
-import { handleShare, handleIngress, type CoreDeps, type Headers } from "./core";
+import { handleShare, handleIngress, handleLinkIngest, type CoreDeps, type Headers } from "./core";
 
 export type ServerDeps = CoreDeps;
 
@@ -36,6 +36,10 @@ export function createBridgeServer(deps: ServerDeps): Server {
       }
       if (req.method === "POST" && url === "/amb/ingress") {
         const r = await handleIngress(deps, toHeaders(req), await readBody(req));
+        return send(res, r.status, r.json);
+      }
+      if (req.method === "POST" && url === "/links/ingest") {
+        const r = await handleLinkIngest(deps, toHeaders(req), await readBody(req));
         return send(res, r.status, r.json);
       }
       return send(res, 404, { error: "not found" });
