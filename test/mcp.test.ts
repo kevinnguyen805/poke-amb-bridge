@@ -58,7 +58,7 @@ describe("mcp tools/call setup_save_to_poke", () => {
     await expect(verifyIngestToken(process.env.POKE_SCOPED_KEY ?? "pk_shortcut_demo", token!)).resolves.toBe(
       "4c542392-0000-0000-0000-000000000000",
     );
-    expect(text).toContain("icloud.com/shortcuts/");
+    expect(text).toContain("/save-to-poke.shortcut");
     expect(text).toContain("/links/ingest");
   });
 

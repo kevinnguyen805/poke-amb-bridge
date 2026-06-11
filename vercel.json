@@ -9,5 +9,14 @@
     { "source": "/wallet", "destination": "/api/wallet" },
     { "source": "/mcp", "destination": "/api/mcp" },
     { "source": "/links/ingest", "destination": "/api/links/ingest" }
+  ],
+  "headers": [
+    {
+      "source": "/save-to-poke.shortcut",
+      "headers": [
+        { "key": "Content-Type", "value": "application/x-apple-as-shortcut" },
+        { "key": "Content-Disposition", "value": "attachment; filename=\"Save to Poke.shortcut\"" }
+      ]
+    }
   ]
 }

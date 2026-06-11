@@ -9,9 +9,9 @@ export const config = { runtime: "edge" };
 const SHORTCUT_URL = "https://www.icloud.com/shortcuts/38066270bde04dd5bb6da2b144111f61";
 
 // "Save to Poke" — silent background save into the user's link list (vs. Message Poke, which
-// opens a chat). Overridable so the link can be repointed without a deploy when republished.
-const SAVE_SHORTCUT_URL =
-  process.env.SAVE_SHORTCUT_URL ?? "https://www.icloud.com/shortcuts/df3977a858984c3586bc636c3d8ed727";
+// opens a chat). Default = the Apple-signed .shortcut hosted on this bridge (built with
+// `shortcuts sign -m anyone`, import question included); env-overridable to an iCloud link.
+const SAVE_SHORTCUT_URL = process.env.SAVE_SHORTCUT_URL ?? "https://poke-amb-bridge.vercel.app/save-to-poke.shortcut";
 const INGEST_URL = "https://poke-amb-bridge.vercel.app/links/ingest";
 
 function saveToPokeSetupText(token: string): string {
@@ -19,9 +19,10 @@ function saveToPokeSetupText(token: string): string {
     `Here's everything you need for the "Save to Poke" Shortcut — links you share from any app will land in your list here.\n\n` +
     `Your personal Save to Poke key (treat it like a password):\n${token}\n\n` +
     `Setup (one time, ~1 minute):\n` +
-    `1. Install the Shortcut: ${SAVE_SHORTCUT_URL}\n` +
-    `2. If you're asked for your "Save to Poke key" while adding it, paste the key above — done.\n` +
-    `3. Older copy of the Shortcut (no question asked)? Open it in the Shortcuts app → "Get Contents of URL" → Headers → ` +
+    `1. Get the Shortcut: ${SAVE_SHORTCUT_URL}\n` +
+    `   (If it downloads as a file, open it from your Downloads — it opens in the Shortcuts app.)\n` +
+    `2. When you're asked for your "Save to Poke key" while adding it, paste the key above — done.\n` +
+    `3. Have an older copy of the Shortcut that never asked? Open it in the Shortcuts app → "Get Contents of URL" → Headers → ` +
     `set "x-poke-key" to the key above, and delete any "x-poke-user-id" header — your key already identifies you. ` +
     `The URL should be ${INGEST_URL}\n\n` +
     `Then share any page → "Save to Poke" → ask me here to list your saved links.`
