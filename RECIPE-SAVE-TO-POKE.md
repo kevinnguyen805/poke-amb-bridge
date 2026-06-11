@@ -45,17 +45,37 @@ The public link currently renders **"Recipe Not Found"** (draft state — create
 Reminder from the Link Companion launch: only `prefilledFirstText` starts the chat; behavioral framing already lives in the MCP `instructions` (updated to route setup asks to `setup_save_to_poke` and to relay the key verbatim).
 ## The Shortcut (SOLVED — signed + hosted, no device work needed)
 
-The import-question Shortcut was **authored programmatically and Apple-signed on Kevin's Mac**
-(`shortcuts sign -m anyone` — signed files import fine on iOS 15+; only *unsigned* ones are
-blocked). It's hosted at **`https://poke-amb-bridge.vercel.app/save-to-poke.shortcut`**
-(served `application/x-apple-as-shortcut`; source plist structure: Text action holding the
-key → Get URLs from Input → POST `/links/ingest` with one `x-poke-key` header → "Saved ✓"
-banner; one Import Question on the Text action). The setup tool hands this URL out by
-default; set `SAVE_SHORTCUT_URL` in Vercel to swap in an iCloud link later without code
-changes. **Verify on-device once**: tap the link in Safari → open the download → Shortcuts
-should preview it and ask for the key. Rebuild + re-sign: `shortcuts sign -m anyone -i
-<unsigned> -o public/save-to-poke.shortcut` (authoring script in the session transcript /
-re-derivable from this structure).
+Authored by **`scripts/build-shortcut.py`** (plistlib → binary plist) and Apple-signed on
+Kevin's Mac (`shortcuts sign -m anyone` — signed files import fine on iOS 15+; only
+*unsigned* ones are blocked). Hosted at
+**`https://poke-amb-bridge.vercel.app/save-to-poke.shortcut`** (served
+`application/x-apple-as-shortcut`). Rebuild:
+
+```bash
+python3 scripts/build-shortcut.py /tmp/stp-unsigned.shortcut
+shortcuts sign -m anyone -i /tmp/stp-unsigned.shortcut -o public/save-to-poke.shortcut
+```
+
+**v2 structure (15 actions):** Text (key, Import Question) → Get URLs from **Shortcut
+Input** → If no URLs: alert "share from the share sheet" + Stop → First Item → POST
+`/links/ingest` (`x-poke-key` header) → Get `saved` from response → If present: "Saved to
+Poke ✓" notification, else: alert with the server's `error` text.
+
+**v1 lessons baked in (2026-06-10, first real installer):**
+- **Variable wiring must use the editor-native encoding** — `WFTextTokenString` +
+  `attachmentsByRange`, not the flat `WFTextTokenAttachment` form. v1 used the flat form
+  for detect.link's input; it parsed, but rendered as an *unwired* "Get URLs from ⬜" slot
+  (Kevin spotted it) and the first installer's save died 400 "url required". Canonical
+  encodings were cribbed from editor-built shortcuts in Kevin's own library
+  (`~/Library/Shortcuts/Shortcuts.sqlite`, `ZSHORTCUTACTIONS.ZDATA` blobs).
+- **Never show unconditional success.** v1's "Saved ✓" banner fired even on a 400 — the
+  installer believed the save worked. v2 branches on the response.
+- **Guard the no-input case.** Running the Shortcut directly (not via share sheet) now
+  explains itself and stops instead of POSTing an empty url.
+
+The setup tool hands the hosted URL out by default; set `SAVE_SHORTCUT_URL` in Vercel to
+swap in an iCloud link later without code changes. Existing installs don't auto-update —
+re-download from your `/setup` page and delete the old copy.
 
 ## Kevin's one-time tasks (browser only — can't be done by an agent)
 
