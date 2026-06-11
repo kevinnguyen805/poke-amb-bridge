@@ -1,5 +1,6 @@
 import { describe, it, expect, afterEach } from "vitest";
 import handler from "../api/mcp";
+import { verifyIngestToken } from "../src/links/ingestToken";
 
 function post(body: unknown, headers: Record<string, string> = {}): Request {
   return new Request("https://x/mcp", {
@@ -29,11 +30,58 @@ describe("mcp initialize", () => {
 });
 
 describe("mcp tools/list", () => {
-  it("lists the four link tools", async () => {
+  it("lists the five tools", async () => {
     const res = await handler(post({ jsonrpc: "2.0", id: 2, method: "tools/list", params: {} }));
     const json: any = await res.json();
     const names = json.result.tools.map((t: { name: string }) => t.name).sort();
-    expect(names).toEqual(["fetch_link", "get_share_shortcut", "list_links", "save_link"]);
+    expect(names).toEqual(["fetch_link", "get_share_shortcut", "list_links", "save_link", "setup_save_to_poke"]);
+  });
+});
+
+describe("mcp tools/call setup_save_to_poke", () => {
+  afterEach(() => {
+    delete process.env.MCP_AUTH_ENFORCE;
+  });
+
+  it("mints a personal key bound to the auto-injected user id, with install steps — no auth or DB needed", async () => {
+    const res = await handler(
+      post(
+        { jsonrpc: "2.0", id: 10, method: "tools/call", params: { name: "setup_save_to_poke", arguments: {} } },
+        { "x-poke-user-id": "4c542392-0000-0000-0000-000000000000" },
+      ),
+    );
+    const json: any = await res.json();
+    const text: string = json.result.content[0].text;
+    // The token is self-authenticating and verifies back to the caller's user id.
+    const token = text.match(/spk_[A-Za-z0-9_-]+\.[0-9a-f]+/)?.[0];
+    expect(token, `no spk_ token in tool result:\n${text}`).toBeTruthy();
+    await expect(verifyIngestToken(process.env.POKE_SCOPED_KEY ?? "pk_shortcut_demo", token!)).resolves.toBe(
+      "4c542392-0000-0000-0000-000000000000",
+    );
+    expect(text).toContain("icloud.com/shortcuts/");
+    expect(text).toContain("/links/ingest");
+  });
+
+  it("stays OPEN when MCP_AUTH_ENFORCE is on — public installers arrive with no key", async () => {
+    process.env.MCP_AUTH_ENFORCE = "true";
+    const res = await handler(
+      post(
+        { jsonrpc: "2.0", id: 11, method: "tools/call", params: { name: "setup_save_to_poke", arguments: {} } },
+        { "x-poke-user-id": "4c542392-0000-0000-0000-000000000000" },
+      ),
+    );
+    const json: any = await res.json();
+    expect(json.error).toBeUndefined();
+    expect(json.result.content[0].text).toContain("spk_");
+  });
+
+  it("declines politely when no user id was injected (direct curl, not via Poke)", async () => {
+    const res = await handler(
+      post({ jsonrpc: "2.0", id: 12, method: "tools/call", params: { name: "setup_save_to_poke", arguments: {} } }),
+    );
+    const json: any = await res.json();
+    expect(json.result.content[0].text).not.toContain("spk_");
+    expect(json.result.content[0].text.toLowerCase()).toContain("poke");
   });
 });
 
@@ -72,7 +120,7 @@ describe("mcp streamable-http transport", () => {
     );
     expect(res.headers.get("content-type")).toContain("application/json");
     const json: any = await res.json();
-    expect(json.result.tools.length).toBe(4);
+    expect(json.result.tools.length).toBe(5);
   });
 
   it("answers a GET SSE-stream open with 405 (no server-initiated stream)", async () => {

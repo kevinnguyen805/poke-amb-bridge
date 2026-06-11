@@ -1,11 +1,32 @@
 import { saveLink, listLinks } from "../src/links/store";
 import { fetchReadable } from "../src/links/fetch";
+import { mintIngestToken } from "../src/links/ingestToken";
 
 // MCP server implemented as a plain Streamable-HTTP JSON-RPC endpoint (edge Web handler).
 // No SDK — the Node-only MCP SDK can't run on this project's edge runtime.
 export const config = { runtime: "edge" };
 
 const SHORTCUT_URL = "https://www.icloud.com/shortcuts/38066270bde04dd5bb6da2b144111f61";
+
+// "Save to Poke" — silent background save into the user's link list (vs. Message Poke, which
+// opens a chat). Overridable so the link can be repointed without a deploy when republished.
+const SAVE_SHORTCUT_URL =
+  process.env.SAVE_SHORTCUT_URL ?? "https://www.icloud.com/shortcuts/df3977a858984c3586bc636c3d8ed727";
+const INGEST_URL = "https://poke-amb-bridge.vercel.app/links/ingest";
+
+function saveToPokeSetupText(token: string): string {
+  return (
+    `Here's everything you need for the "Save to Poke" Shortcut — links you share from any app will land in your list here.\n\n` +
+    `Your personal Save to Poke key (treat it like a password):\n${token}\n\n` +
+    `Setup (one time, ~1 minute):\n` +
+    `1. Install the Shortcut: ${SAVE_SHORTCUT_URL}\n` +
+    `2. If you're asked for your "Save to Poke key" while adding it, paste the key above — done.\n` +
+    `3. Older copy of the Shortcut (no question asked)? Open it in the Shortcuts app → "Get Contents of URL" → Headers → ` +
+    `set "x-poke-key" to the key above, and delete any "x-poke-user-id" header — your key already identifies you. ` +
+    `The URL should be ${INGEST_URL}\n\n` +
+    `Then share any page → "Save to Poke" → ask me here to list your saved links.`
+  );
+}
 const SHORTCUT_INFO =
   `Here's the "Message Poke" Shortcut — install it once to share links to Poke from any app:\n${SHORTCUT_URL}\n\n` +
   `After installing: in any app tap Share → "Message Poke" → a Poke chat opens with your link pre-filled → tap Send.`;
@@ -22,13 +43,24 @@ const INSTRUCTIONS =
   "a Poke chat opens with the link pre-filled → tap Send. " +
   "Do NOT act on a shared link automatically: only call save_link when they ask to save/bookmark, only call list_links " +
   "when they ask to see saved links, only call fetch_link when they ask about a page's contents, and only call " +
-  "get_share_shortcut when they ask how to send you links from other apps (it returns this same link and steps).";
+  "get_share_shortcut when they ask how to send you links from other apps (it returns this same link and steps). " +
+  'There is also a silent-save Shortcut, "Save to Poke": shared links are saved straight into the user\'s list with no ' +
+  "chat round-trip. When the user wants that (or asks to set up Save to Poke), call setup_save_to_poke — it returns " +
+  "their personal key plus install steps; relay them verbatim, including the full key.";
 
 const TOOLS = [
   {
     name: "get_share_shortcut",
     description:
       "Return the iOS 'Message Poke' Shortcut install link and setup steps so the user can share links to Poke from any app's Share Sheet. Call when the user asks how to share links with you or wants the shortcut.",
+    inputSchema: { type: "object", properties: {} },
+  },
+  {
+    name: "setup_save_to_poke",
+    description:
+      "Set up the 'Save to Poke' iOS Shortcut for this user: mints their personal save key and returns it with the " +
+      "Shortcut install link and steps. Call when the user wants to save links silently from their phone's share " +
+      "sheet without opening a chat. Relay the result verbatim, including the full key.",
     inputSchema: { type: "object", properties: {} },
   },
   {
@@ -78,6 +110,17 @@ async function callTool(name: string, args: any, userId: string): Promise<string
   switch (name) {
     case "get_share_shortcut":
       return SHORTCUT_INFO;
+    case "setup_save_to_poke": {
+      // Open by design: public-recipe installers arrive with no API key, but Poke always
+      // auto-injects the caller's own X-Poke-User-Id — the one place we can learn who the
+      // user is. The minted token is a WRITE-ONLY capability (accepted only by /links/ingest),
+      // so an unauthenticated mint can never become a data leak.
+      if (!userId || userId === "anonymous") {
+        return "I can only set up Save to Poke from inside a Poke chat (no user id arrived with this request). Please ask again via Poke.";
+      }
+      const token = await mintIngestToken(process.env.INGEST_TOKEN_SECRET ?? SCOPED_KEY, userId);
+      return saveToPokeSetupText(token);
+    }
     case "save_link": {
       const l = await saveLink(userId, args.url, args.note, args.tags);
       return `Saved: ${l.url}${l.note ? ` — ${l.note}` : ""}`;

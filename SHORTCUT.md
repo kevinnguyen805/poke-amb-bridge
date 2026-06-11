@@ -1,5 +1,10 @@
 # "Save to Poke" — iOS Shortcut spec
 
+> **Setting this up for yourself?** You no longer need this manual spec — install the
+> "Save to Poke" recipe and ask Poke to set you up: it mints a personal `spk_` key (one
+> paste, no user-id header at all). See **`RECIPE-SAVE-TO-POKE.md`**. This file remains the
+> endpoint/source-of-truth spec, and the legacy shared-key path still works.
+
 Share a link from any app → it's saved into your Link Companion list (the same
 Neon `saved_links` store the Poke recipe reads via `list_links`). No message
 thread, no manual tap, silent background save.

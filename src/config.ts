@@ -28,6 +28,8 @@ export function publicConfig() {
 async function build(): Promise<CoreDeps> {
   const businessUuid = publicConfig().businessUuid;
   const scopedKey = process.env.POKE_SCOPED_KEY ?? "pk_shortcut_demo";
+  // Per-user spk_ ingest tokens (Save to Poke). Falls back to the scoped key so prod works with no new env.
+  const ingestTokenSecret = process.env.INGEST_TOKEN_SECRET ?? scopedKey;
   const mspSecret = process.env.MSP_SECRET ?? "msp_secret_demo";
   // Neon's Vercel integration may expose the URL under any of these names.
   const dbUrl = process.env.DATABASE_URL ?? process.env.POSTGRES_URL ?? process.env.DATABASE_URL_UNPOOLED;
@@ -54,6 +56,7 @@ async function build(): Promise<CoreDeps> {
       scopedKey,
       mspSecret,
       saveLink,
+      ingestTokenSecret,
     };
   }
 
@@ -68,5 +71,6 @@ async function build(): Promise<CoreDeps> {
     scopedKey,
     mspSecret,
     saveLink,
+    ingestTokenSecret,
   };
 }

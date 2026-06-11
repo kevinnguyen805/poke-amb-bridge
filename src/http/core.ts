@@ -1,4 +1,5 @@
 import { mint, MintError, type Principal } from "../spine/mint";
+import { looksLikeIngestToken, verifyIngestToken } from "../links/ingestToken";
 import { resolve } from "../spine/ingress";
 import type { TokenStore, ContinuityStore } from "../spine/store";
 import type { RateLimiter } from "../spine/ratelimit";
@@ -26,6 +27,8 @@ export type CoreDeps = {
   sessionResolver?: (bearer: string) => { pokeAccountId: string } | undefined;
   /** Link Companion store writer — injected so the ingest endpoint stays DB-agnostic and testable. */
   saveLink?: (userId: string, url: string, note?: string, tags?: string[]) => Promise<SavedLink>;
+  /** HMAC secret for per-user `spk_` ingest tokens (Save to Poke Shortcut). Defaults to scopedKey. */
+  ingestTokenSecret?: string;
 };
 
 export type Headers = Record<string, string | undefined>;
@@ -133,8 +136,18 @@ export async function handleLinkIngest(deps: CoreDeps, headers: Headers, rawBody
     );
     if (!allowed) return { status: 429, json: { error: "rate_limited" } };
   }
-  const principal = principalFromHeaders(headers, deps);
-  if (!principal) return { status: 401, json: { error: "unauthorized" } };
+  // Per-user `spk_` ingest token (Save to Poke Shortcut): the token IS the identity — the
+  // bound user id comes from the verified token, so a spoofed x-poke-user-id header is inert.
+  const presentedKey = headers["x-poke-key"];
+  let tokenUserId: string | undefined;
+  if (typeof presentedKey === "string" && looksLikeIngestToken(presentedKey)) {
+    tokenUserId = await verifyIngestToken(deps.ingestTokenSecret ?? deps.scopedKey, presentedKey);
+    if (!tokenUserId) return { status: 401, json: { error: "unauthorized" } };
+  } else {
+    const principal = principalFromHeaders(headers, deps);
+    if (!principal) return { status: 401, json: { error: "unauthorized" } };
+    if (principal.kind === "session") tokenUserId = principal.pokeAccountId;
+  }
   if (!deps.saveLink) return { status: 500, json: { error: "link store not configured" } };
 
   let parsedBody: unknown;
@@ -160,9 +173,9 @@ export async function handleLinkIngest(deps: CoreDeps, headers: Headers, rawBody
 
   const note = typeof b.note === "string" ? b.note.slice(0, INGEST_NOTE_CAP) : undefined;
   const tags = Array.isArray(b.tags) ? b.tags.filter((t): t is string => typeof t === "string") : undefined;
-  // Per-user scoping: a session principal carries the Poke account id; scoped-key callers pass the
-  // user via the same X-Poke-User-Id header the MCP save_link tool uses (default "anonymous").
-  const userId = principal.kind === "session" ? principal.pokeAccountId : headers["x-poke-user-id"] ?? "anonymous";
+  // Per-user scoping: spk-token and session callers are identified above; legacy scoped-key
+  // callers pass the user via the same X-Poke-User-Id header the MCP save_link tool uses.
+  const userId = tokenUserId ?? headers["x-poke-user-id"] ?? "anonymous";
 
   try {
     const saved = await deps.saveLink(userId, url, note, tags && tags.length ? tags : undefined);
