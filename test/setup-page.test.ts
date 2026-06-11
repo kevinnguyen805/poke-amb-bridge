@@ -24,6 +24,21 @@ describe("GET /setup — human-facing key handoff page", () => {
     expect(html).not.toContain("4c542392-0000-0000-0000-000000000000");
   });
 
+  it("teaches first-run usage: test-it step, silent-save expectation, what to save, example asks", async () => {
+    const token = await mintIngestToken(SECRET, "4c542392-0000-0000-0000-000000000000");
+    const html = await (await handler(get(`?k=${token}`))).text();
+    // Step 3 is a do-it-now test with the expected outcome spelled out (silent
+    // save, success banner, no chat) — not a bare "Done."
+    expect(html).toContain("Test it now");
+    expect(html).toContain("Saved ✓");
+    expect(html.toLowerCase()).toContain("no chat starts");
+    // Value section: what's worth saving + concrete retrieval phrasings + tailoring.
+    expect(html).toContain("Getting value out of it");
+    expect(html.toLowerCase()).toContain("articles to read later");
+    expect(html).toContain("what did I save this week?");
+    expect(html.toLowerCase()).toContain("tag travel");
+  });
+
   it("rejects a tampered token with an error page that does NOT echo it as valid", async () => {
     const token = await mintIngestToken(SECRET, "4c542392-0000-0000-0000-000000000000");
     const forged = token.slice(0, -2) + "ff";

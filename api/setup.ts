@@ -21,8 +21,11 @@ function page(title: string, body: string, status = 200): Response {
   body{font-family:-apple-system,system-ui,sans-serif;background:#fffdfa;color:#1c1c1c;margin:0;padding:24px;display:flex;justify-content:center}
   main{max-width:26rem;width:100%}
   h1{font-size:1.4rem;margin:0.5rem 0 1rem}
-  ol{padding-left:1.2rem;line-height:1.6}
-  li{margin-bottom:1.1rem}
+  h2{font-size:1.05rem;margin:1.6rem 0 0.6rem;border-top:1px solid #e8e4da;padding-top:1.2rem}
+  ol,ul{padding-left:1.2rem;line-height:1.6}
+  ol>li{margin-bottom:1.1rem}
+  ul>li{margin-bottom:0.3rem}
+  p{line-height:1.55}
   code{display:block;background:#f4f1ea;border:1px solid #ddd;border-radius:8px;padding:10px;word-break:break-all;font-size:0.85rem;margin:8px 0}
   button,a.btn{display:block;width:100%;box-sizing:border-box;text-align:center;background:#1c1c1c;color:#fffdfa;border:none;border-radius:10px;padding:14px;font-size:1rem;font-weight:600;text-decoration:none;cursor:pointer;margin:8px 0}
   .muted{color:#777;font-size:0.85rem}
@@ -51,8 +54,17 @@ export default async function handler(req: Request): Promise<Response> {
     <p class="muted">If it downloads as a file, open it from Downloads — it opens in the Shortcuts app.</p>
     <p class="muted">Current version: v${SHORTCUT_VERSION} (${SHORTCUT_RELEASED}). Installed copies never update themselves — if you added the Shortcut before that date, delete the old copy first.</p>
   </li>
-  <li>Done. Share any page → <b>Save to Poke</b>. Ask Poke to list your saved links anytime.</li>
+  <li>Test it now: open any article, tap Share → <b>Save to Poke</b>. You'll see a <b>“Saved ✓”</b> banner and nothing else opens — the link lands silently in your private list. No chat starts, Poke won't message you about it.</li>
 </ol>
+<h2>Getting value out of it</h2>
+<p><b>Save anything you'd otherwise lose in open tabs:</b> articles to read later, products you're comparing, recipes, job posts, places to try, gift ideas, videos.</p>
+<p><b>Then just ask Poke, anytime:</b></p>
+<ul>
+  <li>“what did I save this week?”</li>
+  <li>“find my links about pricing”</li>
+  <li>“summarize that article I saved yesterday”</li>
+</ul>
+<p><b>Make it yours:</b> when saving in chat you can add context — <i>“save this with a note ‘for the offsite’ and tag travel”</i> — then pull links back by tag or topic later, or ask for a digest of everything you saved this week.</p>
 <script>
   document.getElementById("copy").addEventListener("click", async () => {
     const t = document.getElementById("key").textContent;

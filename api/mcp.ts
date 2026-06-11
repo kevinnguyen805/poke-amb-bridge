@@ -29,7 +29,9 @@ function saveToPokeSetupText(token: string): string {
     `(Upgrading an older copy of the Shortcut that never asked for a key? In the Shortcuts app set the "x-poke-key" header to that key, ` +
     `delete any "x-poke-user-id" header, and keep the URL ${INGEST_URL})\n\n` +
     `Current Shortcut version: v${SHORTCUT_VERSION} (${SHORTCUT_RELEASED}). Installed copies never auto-update — if you added the Shortcut before that date, delete it and re-download from the link above.\n\n` +
-    `Then share any page → "Save to Poke" → ask me here to list your saved links.`
+    `Once it's installed, test it right away: open any article, tap Share → "Save to Poke". You'll see a "Saved ✓" banner and nothing else opens — the link lands silently in your private list (no chat, no interruption).\n\n` +
+    `What it's for: anything you'd otherwise lose in open tabs — articles to read later, products you're comparing, recipes, job posts, places to try, gift ideas, videos.\n\n` +
+    `Then just ask me here, anytime: "what did I save this week?", "find my saved links about <topic>", or "summarize that article I saved yesterday". You can also save with context in this chat — "save <url> with a note 'for the offsite' and tag travel" — and pull things back by tag or topic later.`
   );
 }
 const SHORTCUT_INFO =
@@ -54,6 +56,19 @@ const INSTRUCTIONS =
   "read/summarize pages, and silent share-sheet saving via Save to Poke. Then wait for them to choose. " +
   "Do NOT act on a shared link automatically: only call save_link when they ask to save/bookmark, only call list_links " +
   "when they ask to see saved links, and only call fetch_link when they ask about a page's contents. " +
+  "USAGE GUIDANCE — after a user finishes Save to Poke setup, or whenever they ask how to use it, what to save, or " +
+  "what sharing a link does, explain the loop in plain terms: " +
+  "(1) Sharing a page to 'Save to Poke' saves it silently into their private list — a 'Saved ✓' banner appears and " +
+  "nothing else opens; no chat starts and Poke does not message them about it. " +
+  "(2) Suggest they test it immediately on any article so the success banner confirms setup worked. " +
+  "(3) Good things to save: articles to read later, products being compared, recipes, job posts, places to try, " +
+  "gift ideas, videos — anything they'd otherwise lose in open browser tabs. " +
+  "(4) Retrieval is conversational — give 2–3 concrete example asks, e.g. 'what did I save this week?', " +
+  "'find my links about pricing', 'summarize that article I saved yesterday' (list_links to find, fetch_link to read). " +
+  "(5) Tailoring: in chat they can save with context ('save this with a note and tag it gifts' → save_link with " +
+  "note/tags), then filter by those later; they can also ask for digests like 'summarize everything I saved this week'. " +
+  "Links saved via the Shortcut arrive tagged 'shortcut'; saves made in chat can carry any notes/tags they like. " +
+  "Offer this guidance once, briefly — do not repeat it every time they save. " +
   "TROUBLESHOOTING Save to Poke — these are the verified facts; never invent server-side explanations beyond them. " +
   "(1) The Shortcut does NOT check HTTP status codes; it branches on the `saved` key in the response body, and the " +
   "server's 201 response IS the success path — never tell a user a 200-vs-201 mismatch is the problem. " +

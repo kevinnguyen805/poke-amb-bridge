@@ -27,6 +27,25 @@ describe("mcp initialize", () => {
     // without depending on the get_share_shortcut tool call being delivered.
     expect(instr).toContain("icloud.com/shortcuts/");
   });
+
+  it("carries USAGE GUIDANCE so Poke can explain what sharing does and what to ask", async () => {
+    const res = await handler(
+      post({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-06-18" } }),
+    );
+    const json: any = await res.json();
+    const instr: string = json.result.instructions;
+    expect(instr).toContain("USAGE GUIDANCE");
+    // The three pillars: what sharing does (silent save, no chat), what to save,
+    // and concrete retrieval phrasings Poke should hand the user.
+    expect(instr).toContain("saves it silently");
+    expect(instr.toLowerCase()).toContain("articles to read later");
+    expect(instr).toContain("what did I save this week?");
+    // Tailoring path: chat saves carry notes/tags; shortcut saves arrive tagged.
+    expect(instr).toContain("note/tags");
+    expect(instr).toContain("tagged 'shortcut'");
+    // Guardrail against Poke turning the quick-start into a nag.
+    expect(instr.toLowerCase()).toContain("do not repeat it every time");
+  });
 });
 
 describe("mcp tools/list", () => {
@@ -63,6 +82,12 @@ describe("mcp tools/call setup_save_to_poke", () => {
     // The lead deliverable is the tappable setup link carrying the token — chat UIs
     // mangle raw keys (the failure Kevin hit live on poke.com).
     expect(text).toContain(`/setup?k=${token}`);
+    // First-run guidance rides along verbatim: what sharing does, what to save,
+    // and example asks — Poke relays this text as-is, so it must be self-contained.
+    expect(text).toContain('"Saved ✓" banner');
+    expect(text).toContain("articles to read later");
+    expect(text).toContain("what did I save this week?");
+    expect(text).toContain("tag travel");
   });
 
   it("stays OPEN when MCP_AUTH_ENFORCE is on — public installers arrive with no key", async () => {
