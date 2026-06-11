@@ -1,4 +1,5 @@
 import { verifyIngestToken } from "../src/links/ingestToken";
+import { SHORTCUT_VERSION, SHORTCUT_RELEASED } from "../src/links/shortcutMeta";
 
 export const config = { runtime: "edge" };
 
@@ -48,6 +49,7 @@ export default async function handler(req: Request): Promise<Response> {
   <li>Add the Shortcut — when it asks for your <b>Save to Poke key</b>, paste:
     <a class="btn" href="${SHORTCUT_PATH}">Get the Shortcut</a>
     <p class="muted">If it downloads as a file, open it from Downloads — it opens in the Shortcuts app.</p>
+    <p class="muted">Current version: v${SHORTCUT_VERSION} (${SHORTCUT_RELEASED}). Installed copies never update themselves — if you added the Shortcut before that date, delete the old copy first.</p>
   </li>
   <li>Done. Share any page → <b>Save to Poke</b>. Ask Poke to list your saved links anytime.</li>
 </ol>

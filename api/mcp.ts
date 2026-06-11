@@ -1,6 +1,7 @@
 import { saveLink, listLinks } from "../src/links/store";
 import { fetchReadable } from "../src/links/fetch";
 import { mintIngestToken } from "../src/links/ingestToken";
+import { SHORTCUT_VERSION, SHORTCUT_RELEASED } from "../src/links/shortcutMeta";
 
 // MCP server implemented as a plain Streamable-HTTP JSON-RPC endpoint (edge Web handler).
 // No SDK — the Node-only MCP SDK can't run on this project's edge runtime.
@@ -27,6 +28,7 @@ function saveToPokeSetupText(token: string): string {
     `If you can't open links here, your save key is: ${token} — get the Shortcut at the URL above and paste the key when it asks.\n` +
     `(Upgrading an older copy of the Shortcut that never asked for a key? In the Shortcuts app set the "x-poke-key" header to that key, ` +
     `delete any "x-poke-user-id" header, and keep the URL ${INGEST_URL})\n\n` +
+    `Current Shortcut version: v${SHORTCUT_VERSION} (${SHORTCUT_RELEASED}). Installed copies never auto-update — if you added the Shortcut before that date, delete it and re-download from the link above.\n\n` +
     `Then share any page → "Save to Poke" → ask me here to list your saved links.`
   );
 }
@@ -51,7 +53,17 @@ const INSTRUCTIONS =
   "When the user first interacts, briefly introduce what you can do: save links, find them later by keyword, " +
   "read/summarize pages, and silent share-sheet saving via Save to Poke. Then wait for them to choose. " +
   "Do NOT act on a shared link automatically: only call save_link when they ask to save/bookmark, only call list_links " +
-  "when they ask to see saved links, and only call fetch_link when they ask about a page's contents.";
+  "when they ask to see saved links, and only call fetch_link when they ask about a page's contents. " +
+  "TROUBLESHOOTING Save to Poke — these are the verified facts; never invent server-side explanations beyond them. " +
+  "(1) The Shortcut does NOT check HTTP status codes; it branches on the `saved` key in the response body, and the " +
+  "server's 201 response IS the success path — never tell a user a 200-vs-201 mismatch is the problem. " +
+  "(2) The save endpoint authenticates with the x-poke-key header alone; the spk_ key itself carries the user's " +
+  "identity — no x-poke-user-id or other header is needed by the Shortcut. " +
+  `(3) Installed Shortcuts never auto-update; the current version is v${SHORTCUT_VERSION} (${SHORTCUT_RELEASED}). ` +
+  'If a user reports a Shortcut error ("url has no value", empty/missing variable slots, saves that fail), the fix is ' +
+  "always: delete EVERY copy of the Save to Poke Shortcut on their device, call setup_save_to_poke, and have them " +
+  "re-download from their setup link and paste the key again. " +
+  "(4) If you are unsure why something failed, say so and re-run setup_save_to_poke — do not guess.";
 
 const TOOLS = [
   {
