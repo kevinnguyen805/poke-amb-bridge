@@ -77,6 +77,20 @@ behavioral framing already lives in the MCP `instructions` (updated to route set
 user id (a read-credential while `/mcp` list reads key off user-id alone… and every follower
 of that guide would save into Kevin's list), and its payload section is wrong.
 
+## Evaluated and rejected: "Dynamic iOS Shortcut Injection Service" (2026-06-10)
+
+A proposed Vercel service that downloads a base `.shortcut`, injects each user's
+credentials into the binary plist, and streams it back for iOS to import. **Not viable on
+modern iOS — do not build.** Since iOS 15 (2021), `.shortcut` files must be **Apple-signed**
+to import ("Importing unsigned shortcuts not supported"; the iOS 14 "Allow Untrusted
+Shortcuts" toggle was removed; the beta-1 bypass was patched). A server-mutated plist is
+unsigned, and the signature covers the content, so sign-then-inject is impossible; signing
+per-request requires macOS `shortcuts sign` (or Apple ID keys dumped from a jailbroken
+device — off-limits). Verified 2026-06-10 against the Shortcuts file-format references and
+signing tooling docs. The sanctioned equivalent of "injection" is exactly what this recipe
+already does: per-user value collected once at install via an **Import Question**, identity
+carried by the `spk_` token.
+
 ## Smoke test (no phone needed)
 
 ```bash
