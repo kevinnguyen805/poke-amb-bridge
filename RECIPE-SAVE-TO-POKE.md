@@ -1,14 +1,16 @@
 # "Save to Poke" — recipe kit
-A Poke recipe + iOS Shortcut pair: share any link from any app → it lands silently in your Link Companion list. **Setup is one chat message + one paste** — no API-key hunting, no endpoint URLs, no user-id handling.
+A Poke recipe + iOS Shortcut pair: share any link from any app → it lands silently in your Link Companion list. **Setup is one chat message + one tap** — no API-key hunting, no endpoint URLs, no user-id handling.
 ## The end-user experience (what we optimized for)
 1. **Install the recipe** → it opens with the prefilled first message.
   
-2. Poke calls `setup_save_to_poke` and replies with your **personal save key** + the Shortcut link.
+2. Poke calls `setup_save_to_poke` and replies with your **personal setup link** (`/setup?k=spk_…`).
   
-3. **Tap the Shortcut link, paste the key when asked.** Done — share sheet → "Save to Poke" from then on.
+3. **Tap the link** → the page has a Copy-key button + the Shortcut download. Add the Shortcut, paste when asked. Done — share sheet → "Save to Poke" from then on.
   
 
 The user never sees an endpoint URL, never edits headers, never learns what a user id is.
+
+> **Why a link, not a raw key (learned live 2026-06-10):** Kevin's first real test failed — Poke wouldn't relay the `spk_` key verbatim and poke.com's chat UI has no copy affordance. Chat surfaces treat URLs as atomic (linkified, never paraphrased), so the tool now leads with `https://poke-amb-bridge.vercel.app/setup?k=<token>`; the `/setup` page (edge fn `api/setup.ts`) verifies the token's HMAC before rendering and owns the copy + install steps. Raw key stays in the chat text only as a no-tap fallback.
 ## How it works (server side, already live)
 - New MCP tool `setup_save_to_poke` (in `api/mcp.ts`) — deliberately **open** (not behind `MCP_AUTH_ENFORCE`): the friend-test proved public-recipe installers arrive with _no_ API key but Poke always auto-injects their own `X-Poke-User-Id`. The chat is therefore the one place the server can learn who the user is, so the recipe itself provisions the credential.
   
@@ -23,7 +25,15 @@ The user never sees an endpoint URL, never edits headers, never learns what a us
   
 - Per-user revocation doesn't exist (token is derived, not stored); rotation is global via `INGEST_TOKEN_SECRET`. Accepted for this tier — escalate to stored per-user tokens or MCP OAuth if/when that matters.
   
-## Recipe fields (publish at poke.com — browser, not CLI; `poke mcp add` hangs headless)
+## Recipe status (2026-06-10: CREATED programmatically — needs finishing in Kitchen)
+The Poke backend API at `https://poke.com/api/v1` was mapped from the `poke@0.4.2` npm package source (CLI token from `~/.config/poke/credentials.json`, limited scopes — connection listing is 403, but the CLI-scoped endpoints work):
+
+- `POST /mcp/connections/cli` `{name, serverUrl, tunnel:false}` → **`tunnel:false` works** (the CLI hardcodes `true`); created a direct remote connection `59025f83-f472-4353-bd97-7bd32d462b2a` → serverUrl `https://poke-amb-bridge.vercel.app/mcp`, authType `none`, status `authenticated`. (`DELETE /mcp/connections/<id>` is the rollback.)
+- `POST /mcp/connections/<id>/sync-tools` → 200, all 5 tools synced.
+- `POST /mcp/connections/<id>/create-recipe` `{name:"Save to Poke"}` → **recipe `1be1aa74-ed38-45e4-9ebd-b40f7974cf82`, link `https://poke.com/r/w_S3K1zll9V`**.
+
+The public link currently renders **"Recipe Not Found"** (draft state — created with name only). Finish in Kitchen (browser): open poke.com/kitchen → the Save to Poke recipe → set the fields below → publish. NOTE: this recipe rides the NEW keyless connection above, not the original Bearer-authed Link Companion connection — that's correct for public installers (setup tool is open; data tools enforce auth per-user via Poke's injected user id).
+## Recipe fields (finish at poke.com/kitchen — browser; `poke mcp add` hangs headless)
 | Field | Value |
 | --- | --- |
 | Name | `Save to Poke` |
