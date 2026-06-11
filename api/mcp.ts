@@ -32,31 +32,32 @@ function saveToPokeSetupText(token: string): string {
 }
 const SHORTCUT_INFO =
   `Here's the "Message Poke" Shortcut — install it once to share links to Poke from any app:\n${SHORTCUT_URL}\n\n` +
-  `After installing: in any app tap Share → "Message Poke" → a Poke chat opens with your link pre-filled → tap Send.`;
+  `After installing: in any app tap Share → "Message Poke" → a Poke chat opens with your link pre-filled → tap Send.\n` +
+  `(Want links saved silently instead, with no chat? That's the separate "Save to Poke" Shortcut — ask me to set up Save to Poke.)`;
 
 // MCP `instructions` — onboarding behavior Poke reads at connect time. This is the
 // home for "introduce the abilities, don't auto-act"; tool descriptions only gate calls.
 const INSTRUCTIONS =
   "Link Companion lets the user save, search, read, and share links — all inside this chat. " +
-  "When the user first interacts (or shares their first link), briefly introduce what you can do with a link: " +
-  "(1) save it to their personal list, (2) find saved links later by keyword, (3) read/summarize a page for them, " +
-  "and (4) hand them the iOS \"Message Poke\" Shortcut to share links from any app. Then wait for them to choose. " +
-  `The Shortcut install link is ${SHORTCUT_URL} — when the user asks how to share links from other apps, you can give them ` +
-  "this link and these steps directly, no tool call required: after installing, in any app tap Share → \"Message Poke\" → " +
-  "a Poke chat opens with the link pre-filled → tap Send. " +
+  "There are TWO DIFFERENT iOS Shortcuts; never substitute one for the other. " +
+  '(A) "Save to Poke" — silently saves shared links into the user\'s list, no chat round-trip. Its setup MUST come from the ' +
+  "setup_save_to_poke tool: call it whenever the user wants to set up Save to Poke, save links from their phone's share " +
+  "sheet, or asks for their key or 'the shortcut' after installing this recipe. Relay the tool result verbatim — the full " +
+  "setup link (including its ?k= part) must reach the user as a tappable URL. Never answer that request with any other " +
+  "shortcut link, including the Message Poke one below. " +
+  '(B) "Message Poke" — OPENS A CHAT with the shared link pre-filled; it does not save anything. Only when the user ' +
+  `explicitly wants to message links into this chat, give ${SHORTCUT_URL} with these steps (or call get_share_shortcut): ` +
+  'after installing, in any app tap Share → "Message Poke" → a Poke chat opens with the link pre-filled → tap Send. ' +
+  "When the user first interacts, briefly introduce what you can do: save links, find them later by keyword, " +
+  "read/summarize pages, and silent share-sheet saving via Save to Poke. Then wait for them to choose. " +
   "Do NOT act on a shared link automatically: only call save_link when they ask to save/bookmark, only call list_links " +
-  "when they ask to see saved links, only call fetch_link when they ask about a page's contents, and only call " +
-  "get_share_shortcut when they ask how to send you links from other apps (it returns this same link and steps). " +
-  'There is also a silent-save Shortcut, "Save to Poke": shared links are saved straight into the user\'s list with no ' +
-  "chat round-trip. When the user wants that (or asks to set up Save to Poke), call setup_save_to_poke — it returns " +
-  "their personal setup LINK plus steps; relay the result verbatim — the full setup link (including its ?k= part) must " +
-  "reach the user as a tappable URL.";
+  "when they ask to see saved links, and only call fetch_link when they ask about a page's contents.";
 
 const TOOLS = [
   {
     name: "get_share_shortcut",
     description:
-      "Return the iOS 'Message Poke' Shortcut install link and setup steps so the user can share links to Poke from any app's Share Sheet. Call when the user asks how to share links with you or wants the shortcut.",
+      "Return the iOS 'Message Poke' Shortcut install link — it OPENS A CHAT with the shared link pre-filled; it does not save anything. Only call when the user explicitly wants to message links into this chat. NOT for 'Save to Poke' — silent saving setup must come from setup_save_to_poke instead.",
     inputSchema: { type: "object", properties: {} },
   },
   {
