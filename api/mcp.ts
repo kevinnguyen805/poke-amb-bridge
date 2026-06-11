@@ -13,18 +13,20 @@ const SHORTCUT_URL = "https://www.icloud.com/shortcuts/38066270bde04dd5bb6da2b14
 // `shortcuts sign -m anyone`, import question included); env-overridable to an iCloud link.
 const SAVE_SHORTCUT_URL = process.env.SAVE_SHORTCUT_URL ?? "https://poke-amb-bridge.vercel.app/save-to-poke.shortcut";
 const INGEST_URL = "https://poke-amb-bridge.vercel.app/links/ingest";
+const SETUP_PAGE_URL = "https://poke-amb-bridge.vercel.app/setup";
 
+// The deliverable is a LINK, not a raw key: chat surfaces paraphrase or withhold
+// password-looking strings and poke.com's chat has no copy affordance. The /setup page
+// (same token in ?k=) owns the copy button + Shortcut download. Key kept inline below
+// only as a fallback for users who can tap nothing.
 function saveToPokeSetupText(token: string): string {
   return (
-    `Here's everything you need for the "Save to Poke" Shortcut — links you share from any app will land in your list here.\n\n` +
-    `Your personal Save to Poke key (treat it like a password):\n${token}\n\n` +
-    `Setup (one time, ~1 minute):\n` +
-    `1. Get the Shortcut: ${SAVE_SHORTCUT_URL}\n` +
-    `   (If it downloads as a file, open it from your Downloads — it opens in the Shortcuts app.)\n` +
-    `2. When you're asked for your "Save to Poke key" while adding it, paste the key above — done.\n` +
-    `3. Have an older copy of the Shortcut that never asked? Open it in the Shortcuts app → "Get Contents of URL" → Headers → ` +
-    `set "x-poke-key" to the key above, and delete any "x-poke-user-id" header — your key already identifies you. ` +
-    `The URL should be ${INGEST_URL}\n\n` +
+    `Here's your personal "Save to Poke" setup link — open it on your iPhone and follow the two steps there (~1 minute):\n\n` +
+    `${SETUP_PAGE_URL}?k=${token}\n\n` +
+    `That page lets you copy your save key and install the Shortcut (${SAVE_SHORTCUT_URL}). ` +
+    `If you can't open links here, your save key is: ${token} — get the Shortcut at the URL above and paste the key when it asks.\n` +
+    `(Upgrading an older copy of the Shortcut that never asked for a key? In the Shortcuts app set the "x-poke-key" header to that key, ` +
+    `delete any "x-poke-user-id" header, and keep the URL ${INGEST_URL})\n\n` +
     `Then share any page → "Save to Poke" → ask me here to list your saved links.`
   );
 }
@@ -47,7 +49,8 @@ const INSTRUCTIONS =
   "get_share_shortcut when they ask how to send you links from other apps (it returns this same link and steps). " +
   'There is also a silent-save Shortcut, "Save to Poke": shared links are saved straight into the user\'s list with no ' +
   "chat round-trip. When the user wants that (or asks to set up Save to Poke), call setup_save_to_poke — it returns " +
-  "their personal key plus install steps; relay them verbatim, including the full key.";
+  "their personal setup LINK plus steps; relay the result verbatim — the full setup link (including its ?k= part) must " +
+  "reach the user as a tappable URL.";
 
 const TOOLS = [
   {
@@ -59,9 +62,9 @@ const TOOLS = [
   {
     name: "setup_save_to_poke",
     description:
-      "Set up the 'Save to Poke' iOS Shortcut for this user: mints their personal save key and returns it with the " +
-      "Shortcut install link and steps. Call when the user wants to save links silently from their phone's share " +
-      "sheet without opening a chat. Relay the result verbatim, including the full key.",
+      "Set up the 'Save to Poke' iOS Shortcut for this user: mints their personal setup link (which carries their save " +
+      "key) and returns it with steps. Call when the user wants to save links silently from their phone's share sheet " +
+      "without opening a chat. Relay the result verbatim — the full setup URL including its ?k= parameter.",
     inputSchema: { type: "object", properties: {} },
   },
   {

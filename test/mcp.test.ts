@@ -60,6 +60,9 @@ describe("mcp tools/call setup_save_to_poke", () => {
     );
     expect(text).toContain("/save-to-poke.shortcut");
     expect(text).toContain("/links/ingest");
+    // The lead deliverable is the tappable setup link carrying the token — chat UIs
+    // mangle raw keys (the failure Kevin hit live on poke.com).
+    expect(text).toContain(`/setup?k=${token}`);
   });
 
   it("stays OPEN when MCP_AUTH_ENFORCE is on — public installers arrive with no key", async () => {

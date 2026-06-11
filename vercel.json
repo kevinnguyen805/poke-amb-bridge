@@ -8,6 +8,7 @@
     { "source": "/open", "destination": "/api/open" },
     { "source": "/wallet", "destination": "/api/wallet" },
     { "source": "/mcp", "destination": "/api/mcp" },
+    { "source": "/setup", "destination": "/api/setup" },
     { "source": "/links/ingest", "destination": "/api/links/ingest" }
   ],
   "headers": [
