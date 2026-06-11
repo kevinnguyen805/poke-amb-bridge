@@ -73,13 +73,18 @@ Input** → If no URLs: alert "share from the share sheet" + Stop → First Item
 `/links/ingest` (`x-poke-key` header) → Get `saved` from response → If present: silent
 haptic (vibrate — no banner, per Kevin), else: alert with the server's `error` text.
 
-**v1 lessons baked in (2026-06-10, first real installer):**
-- **Variable wiring must use the editor-native encoding** — `WFTextTokenString` +
-  `attachmentsByRange`, not the flat `WFTextTokenAttachment` form. v1 used the flat form
-  for detect.link's input; it parsed, but rendered as an *unwired* "Get URLs from ⬜" slot
-  (Kevin spotted it) and the first installer's save died 400 "url required". Canonical
-  encodings were cribbed from editor-built shortcuts in Kevin's own library
-  (`~/Library/Shortcuts/Shortcuts.sqlite`, `ZSHORTCUTACTIONS.ZDATA` blobs).
+**v1/v2 lessons baked in (2026-06-10/11, first real installer):**
+- **Each slot type has its own variable encoding — match the editor exactly.**
+  TEXT fields (alert messages, dictionary/header values, detect.link's input) use
+  `WFTextTokenString` + `attachmentsByRange`; ITEM-INPUT slots (Get Item from List,
+  Get Dictionary Value) use the flat `WFTextTokenAttachment`; If inputs wrap the flat
+  attachment in `{"Type":"Variable","Variable":…}`. Getting it wrong is silent: the
+  file imports cleanly but the slot renders ⬜ *unwired* and outputs nothing — v1 died
+  this way on detect.link (flat where token-string belonged → 400 "url required"),
+  v2 died the mirror way on getitemfromlist/getvalueforkey (token-string where flat
+  belonged → runtime "url has no value"). Canonical encodings are cribbed from
+  editor-built shortcuts in Kevin's own library (`~/Library/Shortcuts/Shortcuts.sqlite`,
+  `ZSHORTCUTACTIONS.ZDATA` blobs); `build-shortcut.py` now self-checks both families.
 - **Never show unconditional success.** v1's "Saved ✓" banner fired even on a 400 — the
   installer believed the save worked. v2 branches on the response.
 - **Guard the no-input case.** Running the Shortcut directly (not via share sheet) now

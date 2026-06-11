@@ -7,11 +7,16 @@ Usage:
 
 Serialization choices are cribbed byte-for-byte from shortcuts the iOS editor
 itself wrote (hand-wired copies in Kevin's library, plus Apple's gallery
-'Markup and Send'). Two encodings exist for variable wiring; the editor-native
-one is WFTextTokenString + attachmentsByRange. The flat WFTextTokenAttachment
-form parses but rendered as an UNWIRED slot in the iOS editor for
-detect.link's input (the 2026-06-10 first-installer 400), so: always use the
-token-string form for input slots here.
+'Markup and Send'). Two encodings exist for variable wiring, and EACH SLOT
+TYPE DEMANDS ITS OWN (v2's "url has no value", 2026-06-11 — the v1 lesson
+"always token-string" was over-generalized):
+
+- TEXT fields (alert messages, dictionary/header values, detect.link's input):
+  WFTextTokenString + attachmentsByRange.  [editor: all_30, all_3]
+- ITEM-INPUT slots (Get Item from List, Get Dictionary Value):
+  flat WFTextTokenAttachment.  [editor: all_17 — token-string here renders
+  as an UNWIRED slot on iOS and the action outputs nothing]
+- IF inputs: {"Type": "Variable", "Variable": {flat attachment}}.  [all_13]
 """
 import plistlib
 import sys
@@ -46,6 +51,14 @@ def token_string(attachment: dict) -> dict:
 
 def plain_token(text: str) -> dict:
     return {"Value": {"string": text}, "WFSerializationType": "WFTextTokenString"}
+
+
+def item_input(uuid: str, name: str) -> dict:
+    """WFInput shape for item-input slots (Get Item from List / Get Dictionary Value)."""
+    return {
+        "Value": action_output(uuid, name),
+        "WFSerializationType": "WFTextTokenAttachment",
+    }
 
 
 def conditional_input(uuid: str, name: str) -> dict:
@@ -106,7 +119,7 @@ actions = [
         "WFWorkflowActionIdentifier": "is.workflow.actions.getitemfromlist",
         "WFWorkflowActionParameters": {
             "UUID": FIRST_UUID,
-            "WFInput": token_string(action_output(URLS_UUID, "URLs")),
+            "WFInput": item_input(URLS_UUID, "URLs"),
             "WFItemSpecifier": "First Item",
         },
     },
@@ -156,7 +169,7 @@ actions = [
         "WFWorkflowActionParameters": {
             "UUID": SAVED_UUID,
             "WFDictionaryKey": "saved",
-            "WFInput": token_string(action_output(POST_UUID, "Contents of URL")),
+            "WFInput": item_input(POST_UUID, "Contents of URL"),
         },
     },
     {
@@ -180,7 +193,7 @@ actions = [
         "WFWorkflowActionParameters": {
             "UUID": ERROR_UUID,
             "WFDictionaryKey": "error",
-            "WFInput": token_string(action_output(POST_UUID, "Contents of URL")),
+            "WFInput": item_input(POST_UUID, "Contents of URL"),
         },
     },
     {
@@ -241,6 +254,14 @@ if __name__ == "__main__":
             groups.setdefault(p["GroupingIdentifier"], []).append(p["WFControlFlowMode"])
     for gid, modes in groups.items():
         assert modes[0] == 0 and modes[-1] == 2 and sorted(modes) == modes, (gid, modes)
+    # Sanity: item-input slots must use the flat attachment form (the v2 bug:
+    # token-string here imports cleanly but renders unwired and outputs nothing).
+    for a in actions:
+        ident = a["WFWorkflowActionIdentifier"].rsplit(".", 1)[-1]
+        if ident in ("getitemfromlist", "getvalueforkey"):
+            wi = a["WFWorkflowActionParameters"]["WFInput"]
+            assert wi["WFSerializationType"] == "WFTextTokenAttachment", (ident, wi)
+            assert "string" not in wi["Value"], (ident, wi)
     # Sanity: attachment ranges anchor on the OBJ char they claim.
     msg = actions[-2]["WFWorkflowActionParameters"]["WFAlertActionMessage"]["Value"]
     for rng in msg["attachmentsByRange"]:
