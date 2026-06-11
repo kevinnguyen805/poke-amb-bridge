@@ -96,9 +96,10 @@ const TOOLS = [
   },
 ];
 
-// Data tools touch user data (read/write/fetch) so they require the scoped key; the static
-// get_share_shortcut + discovery methods (initialize/tools/list/ping) stay open. Poke sends
-// the key as an `x-poke-key` header (set in its MCP integration config); value = POKE_SCOPED_KEY.
+// Data tools touch user data (read/write/fetch) so they require a credential: either the
+// scoped key (Bearer / x-poke-key — Kevin's original connection) or a Poke-injected
+// x-poke-user-id (recipe installers — keyless by Poke's design; tools scope to that uid).
+// Static get_share_shortcut + discovery methods (initialize/tools/list/ping) stay open.
 const SCOPED_KEY = process.env.POKE_SCOPED_KEY ?? "pk_shortcut_demo";
 const DATA_TOOLS = new Set(["save_link", "list_links", "fetch_link"]);
 
@@ -216,10 +217,19 @@ export default async function handler(req: Request): Promise<Response> {
         const name = params?.name;
         // Gate data tools (save/list/fetch); get_share_shortcut stays open. Enforcement is behind
         // MCP_AUTH_ENFORCE so this ships diagnostic-only first (logs above, no rejection).
+        //
+        // A Poke-injected x-poke-user-id counts as the credential: recipe installers are
+        // keyless FOREVER (Poke's shared connections carry no API key), and answering them
+        // with -32001 "unauthorized" wedges Poke's client into a needs-authorization state
+        // whose authorize link 500s poke.com-side (we expose no OAuth) — learned from the
+        // first real installer, 2026-06-10. Tools scope to the injected uid, the same trust
+        // the spk_ token mint already extends. -32001 now only answers fully-anonymous
+        // direct hits (no key AND no user id — curl probes; Poke always injects the uid).
         if (
           typeof name === "string" &&
           DATA_TOOLS.has(name) &&
           !authed &&
+          (rawUid === null || rawUid === "") &&
           process.env.MCP_AUTH_ENFORCE === "true"
         ) {
           return err(req, id, -32001, `unauthorized: tool '${name}' requires authentication (Bearer API key or x-poke-key)`);

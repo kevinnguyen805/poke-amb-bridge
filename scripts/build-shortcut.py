@@ -168,13 +168,9 @@ actions = [
             "WFInput": conditional_input(SAVED_UUID, "Dictionary Value"),
         },
     },
-    {
-        "WFWorkflowActionIdentifier": "is.workflow.actions.notification",
-        "WFWorkflowActionParameters": {
-            "WFNotificationActionBody": "Saved to Poke ✓",
-            "WFNotificationActionSound": False,
-        },
-    },
+    # Success is silent — the share-sheet checkmark animation plus a haptic is enough
+    # (Kevin, 2026-06-10: "just the shortcut animation and a vibration"). Failures alert.
+    {"WFWorkflowActionIdentifier": "is.workflow.actions.vibrate", "WFWorkflowActionParameters": {}},
     {
         "WFWorkflowActionIdentifier": "is.workflow.actions.conditional",
         "WFWorkflowActionParameters": {"GroupingIdentifier": IF_SAVED_GROUP, "WFControlFlowMode": 1},

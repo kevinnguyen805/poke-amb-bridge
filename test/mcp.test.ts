@@ -151,10 +151,39 @@ describe("mcp data-tool auth gate", () => {
     expect(json.error?.code).not.toBe(-32001);
   });
 
-  it("enforce mode: rejects list_links with no credential (-32001)", async () => {
+  it("enforce mode: rejects list_links with no credential AND no user id (-32001)", async () => {
     process.env.MCP_AUTH_ENFORCE = "true";
     const res = await handler(
       post({ jsonrpc: "2.0", id: 11, method: "tools/call", params: { name: "list_links", arguments: {} } }),
+    );
+    const json: any = await res.json();
+    expect(json.error?.code).toBe(-32001);
+  });
+
+  // Recipe installers are keyless forever (Poke's shared connections carry no API key);
+  // a -32001 here wedges Poke into a needs-authorization loop that dead-ends in a
+  // poke.com 500 (no OAuth on this server). The injected uid IS their credential.
+  it("enforce mode: allows data tools when Poke injects a user id (keyless recipe installers)", async () => {
+    process.env.MCP_AUTH_ENFORCE = "true";
+    const res = await handler(
+      post(
+        { jsonrpc: "2.0", id: 15, method: "tools/call", params: { name: "list_links", arguments: {} } },
+        { "x-poke-user-id": "5daab433-0000-0000-0000-000000000000" },
+      ),
+    );
+    const json: any = await res.json();
+    // No store in unit tests — the call may fail downstream (-32603), but it must
+    // get PAST the auth gate (the -32001 is what wedges Poke's client).
+    expect(json.error?.code).not.toBe(-32001);
+  });
+
+  it("enforce mode: an empty x-poke-user-id header does not count as a credential", async () => {
+    process.env.MCP_AUTH_ENFORCE = "true";
+    const res = await handler(
+      post(
+        { jsonrpc: "2.0", id: 16, method: "tools/call", params: { name: "list_links", arguments: {} } },
+        { "x-poke-user-id": "" },
+      ),
     );
     const json: any = await res.json();
     expect(json.error?.code).toBe(-32001);

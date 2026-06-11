@@ -18,6 +18,18 @@ The user never sees an endpoint URL, never edits headers, never learns what a us
   
 - `POST /links/ingest` accepts `x-poke-key: spk_…` and derives the user **from the token** (a spoofed `x-poke-user-id` header is ignored on this path). The legacy shared-key + header path still works, so Kevin's existing Shortcut install is untouched.
   
+### MCP auth for recipe installers (changed 2026-06-11)
+Poke's recipe-shared connections carry **no API key** — installers are keyless forever.
+v1 enforcement answered their data-tool calls with `-32001 unauthorized`, which wedged
+Poke's client into a *needs-authorization* state: its authorize link 500s on poke.com's
+side (this server exposes no OAuth), and disconnect/re-add loops with "invalid url"
+(first real installer, 2026-06-10). Fix: a Poke-injected `x-poke-user-id` now **counts as
+the credential** for `save_link`/`list_links`/`fetch_link`, scoped to that uid — the same
+trust the open token mint already extends. `-32001` remains only for fully-anonymous
+direct hits (no key AND no uid — curl probes; Poke always injects the uid). Trade-off
+accepted: a leaked Poke uid is again a read-credential for that user's list; the real fix
+stays Tier-2 per-user OAuth.
+
 ### Security model (why an open mint is safe)
 - The token is accepted **only** by `/links/ingest` — it can never read links, so the open mint can't leak data.
   
@@ -58,8 +70,8 @@ shortcuts sign -m anyone -i /tmp/stp-unsigned.shortcut -o public/save-to-poke.sh
 
 **v2 structure (15 actions):** Text (key, Import Question) → Get URLs from **Shortcut
 Input** → If no URLs: alert "share from the share sheet" + Stop → First Item → POST
-`/links/ingest` (`x-poke-key` header) → Get `saved` from response → If present: "Saved to
-Poke ✓" notification, else: alert with the server's `error` text.
+`/links/ingest` (`x-poke-key` header) → Get `saved` from response → If present: silent
+haptic (vibrate — no banner, per Kevin), else: alert with the server's `error` text.
 
 **v1 lessons baked in (2026-06-10, first real installer):**
 - **Variable wiring must use the editor-native encoding** — `WFTextTokenString` +
