@@ -29,7 +29,7 @@ function saveToPokeSetupText(token: string): string {
     `(Upgrading an older copy of the Shortcut that never asked for a key? In the Shortcuts app set the "x-poke-key" header to that key, ` +
     `delete any "x-poke-user-id" header, and keep the URL ${INGEST_URL})\n\n` +
     `Current Shortcut version: v${SHORTCUT_VERSION} (${SHORTCUT_RELEASED}). Installed copies never auto-update — if you added the Shortcut before that date, delete it and re-download from the link above.\n\n` +
-    `Once it's installed, test it right away: open any article, tap Share → "Save to Poke". You'll see a "Saved ✓" banner and nothing else opens — the link lands silently in your private list (no chat, no interruption).\n\n` +
+    `Once it's installed, test it right away: open any article, tap Share → "Save to Poke". Success is deliberately quiet — a short vibration and the share sheet closes. No banner, no chat opens; the link lands silently in your private list. (Only failures show an alert, with the reason.)\n\n` +
     `What it's for: anything you'd otherwise lose in open tabs — articles to read later, products you're comparing, recipes, job posts, places to try, gift ideas, videos.\n\n` +
     `Then just ask me here, anytime: "what did I save this week?", "find my saved links about <topic>", or "summarize that article I saved yesterday". You can also save with context in this chat — "save <url> with a note 'for the offsite' and tag travel" — and pull things back by tag or topic later.`
   );
@@ -58,9 +58,11 @@ const INSTRUCTIONS =
   "when they ask to see saved links, and only call fetch_link when they ask about a page's contents. " +
   "USAGE GUIDANCE — after a user finishes Save to Poke setup, or whenever they ask how to use it, what to save, or " +
   "what sharing a link does, explain the loop in plain terms: " +
-  "(1) Sharing a page to 'Save to Poke' saves it silently into their private list — a 'Saved ✓' banner appears and " +
-  "nothing else opens; no chat starts and Poke does not message them about it. " +
-  "(2) Suggest they test it immediately on any article so the success banner confirms setup worked. " +
+  "(1) Sharing a page to 'Save to Poke' saves it silently into their private list — success is just a short vibration " +
+  "and the share sheet closing; there is NO banner, no chat starts, and Poke does not message them about it. Only " +
+  "failures show an alert with the reason. " +
+  "(2) Suggest they test it immediately on any article — a quiet vibration with no error alert means it worked, and " +
+  "they can confirm by asking to list their saved links. " +
   "(3) Good things to save: articles to read later, products being compared, recipes, job posts, places to try, " +
   "gift ideas, videos — anything they'd otherwise lose in open browser tabs. " +
   "(4) Retrieval is conversational — give 2–3 concrete example asks, e.g. 'what did I save this week?', " +

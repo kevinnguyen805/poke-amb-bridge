@@ -54,7 +54,7 @@ export default async function handler(req: Request): Promise<Response> {
     <p class="muted">If it downloads as a file, open it from Downloads — it opens in the Shortcuts app.</p>
     <p class="muted">Current version: v${SHORTCUT_VERSION} (${SHORTCUT_RELEASED}). Installed copies never update themselves — if you added the Shortcut before that date, delete the old copy first.</p>
   </li>
-  <li>Test it now: open any article, tap Share → <b>Save to Poke</b>. You'll see a <b>“Saved ✓”</b> banner and nothing else opens — the link lands silently in your private list. No chat starts, Poke won't message you about it.</li>
+  <li>Test it now: open any article, tap Share → <b>Save to Poke</b>. Success is deliberately quiet — a short <b>vibration</b> and the share sheet closes. No banner, no chat starts, Poke won't message you about it. (Only errors show an alert.) Ask Poke to list your saved links to see it landed.</li>
 </ol>
 <h2>Getting value out of it</h2>
 <p><b>Save anything you'd otherwise lose in open tabs:</b> articles to read later, products you're comparing, recipes, job posts, places to try, gift ideas, videos.</p>

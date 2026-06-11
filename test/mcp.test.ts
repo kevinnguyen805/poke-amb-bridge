@@ -36,8 +36,11 @@ describe("mcp initialize", () => {
     const instr: string = json.result.instructions;
     expect(instr).toContain("USAGE GUIDANCE");
     // The three pillars: what sharing does (silent save, no chat), what to save,
-    // and concrete retrieval phrasings Poke should hand the user.
+    // and concrete retrieval phrasings Poke should hand the user. The success
+    // signal is a vibration, NOT a banner — the shortcut's success path is silent.
     expect(instr).toContain("saves it silently");
+    expect(instr).toContain("NO banner");
+    expect(instr).toContain("short vibration");
     expect(instr.toLowerCase()).toContain("articles to read later");
     expect(instr).toContain("what did I save this week?");
     // Tailoring path: chat saves carry notes/tags; shortcut saves arrive tagged.
@@ -84,7 +87,9 @@ describe("mcp tools/call setup_save_to_poke", () => {
     expect(text).toContain(`/setup?k=${token}`);
     // First-run guidance rides along verbatim: what sharing does, what to save,
     // and example asks — Poke relays this text as-is, so it must be self-contained.
-    expect(text).toContain('"Saved ✓" banner');
+    // Success feedback is a vibration ONLY (Kevin's spec) — never promise a banner.
+    expect(text).toContain("a short vibration");
+    expect(text).not.toContain("banner appears");
     expect(text).toContain("articles to read later");
     expect(text).toContain("what did I save this week?");
     expect(text).toContain("tag travel");
